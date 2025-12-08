@@ -1,0 +1,28 @@
+
+services:
+  etl-engine-mysql:
+    image: mysql:8.0.33
+    container_name: etl-engine-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: backend
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+      - ./data/:/tmp/data/
+      - etl-engine-mysql-data:/var/lib/mysql
+
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - etl-network
+
+volumes:
+  etl-engine-mysql-data:
+    name: etl-engine-mysql-data
+
+networks:
+  etl-network:
+    external: true

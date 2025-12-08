@@ -1,0 +1,123 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from pymongo.database import Database
+from typing import List
+from ..database import get_database
+from ..schemas.connection import (
+    ConnectionCreate, ConnectionUpdate, ConnectionResponse,
+    TestConnectionRequest, TestConnectionResponse
+)
+from ..services.connection_service import ConnectionService
+from ..services.test_connection_service import test_database_connection
+from ..utils.exceptions import ConnectionNotFoundError, DuplicateConnectionError
+
+router = APIRouter(prefix="/connections", tags=["connections"])
+
+
+def get_connection_service(db: Database = Depends(get_database)) -> ConnectionService:
+    return ConnectionService(db)
+
+
+@router.post("/", response_model=ConnectionResponse, status_code=status.HTTP_201_CREATED)
+def create_connection(
+    connection: ConnectionCreate,
+    service: ConnectionService = Depends(get_connection_service)
+):
+    """Create a new source connection"""
+    try:
+        return service.create_connection(connection)
+    except DuplicateConnectionError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/", response_model=List[ConnectionResponse])
+def list_connections(
+    service: ConnectionService = Depends(get_connection_service)
+):
+    """List all source connections"""
+    return service.list_connections()
+
+
+@router.get("/{connection_id}", response_model=ConnectionResponse)
+def get_connection(
+    connection_id: str,
+    service: ConnectionService = Depends(get_connection_service)
+):
+    """Get a specific connection by ID"""
+    try:
+        return service.get_connection(connection_id)
+    except ConnectionNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.put("/{connection_id}", response_model=ConnectionResponse)
+def update_connection(
+    connection_id: str,
+    update: ConnectionUpdate,
+    service: ConnectionService = Depends(get_connection_service)
+):
+    """Update an existing connection"""
+    try:
+        return service.update_connection(connection_id, update)
+    except ConnectionNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except DuplicateConnectionError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_connection(
+    connection_id: str,
+    service: ConnectionService = Depends(get_connection_service)
+):
+    """Delete a connection"""
+    try:
+        service.delete_connection(connection_id)
+    except ConnectionNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/test", response_model=TestConnectionResponse)
+def test_connection(
+    connection: TestConnectionRequest,
+    service: ConnectionService = Depends(get_connection_service)
+):
+    """Test a database connection before saving"""
+    result = test_database_connection(connection)
+    return result
+
+
+@router.post("/{connection_id}/test", response_model=TestConnectionResponse)
+def test_existing_connection(
+    connection_id: str,
+    service: ConnectionService = Depends(get_connection_service)
+):
+    """Test an existing connection"""
+    try:
+        # Get the connection
+        connection = service.get_connection(connection_id)
+
+        # Decrypt password for testing
+        from ..utils.encryption import decrypt_password
+        test_request = TestConnectionRequest(
+            name=connection.name,
+            db_type=connection.db_type,
+            host=connection.host,
+            port=connection.port,
+            database=connection.database,
+            username=connection.username,
+            password=decrypt_password(connection.password)
+        )
+
+        result = test_database_connection(test_request)
+
+        # Update test status
+        service.update_test_status(
+            connection_id,
+            "success" if result.success else "failed"
+        )
+
+        return result
+    except ConnectionNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
