@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { Connection, ConnectionFormData, TestConnectionResult } from '../types/connection';
 import { TableSchema, TableSchemaFormData } from '../types/schema';
+import { TableInfo, SqlPreviewRequest, SqlPreviewResponse } from '../types/mapping';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -82,6 +83,20 @@ export const schemaAPI = {
   // Delete schema
   delete: async (id: string): Promise<void> => {
     await api.delete(`/schemas/${id}`);
+  },
+};
+
+export const mappingAPI = {
+  // List tables from a connection
+  listTables: async (connectionId: string): Promise<TableInfo[]> => {
+    const response = await api.get<TableInfo[]>(`/mappings/connections/${connectionId}/tables`);
+    return response.data;
+  },
+
+  // Preview SQL query results
+  previewSql: async (data: SqlPreviewRequest): Promise<SqlPreviewResponse> => {
+    const response = await api.post<SqlPreviewResponse>('/mappings/preview', data);
+    return response.data;
   },
 };
 

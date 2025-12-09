@@ -8,6 +8,7 @@ import { SourcesPage } from './pages/SourcesPage';
 import { Search, Calendar, FileDown, Plus } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { MappingsPage } from './pages/MappingsPage';
+import { NewMappingPage } from './pages/NewMappingPage';
 import { SchemaPage } from './pages/SchemaPage';
 
 function DashboardPage() {
@@ -124,7 +125,8 @@ function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/sources" element={<SourcesPage />} />
-              <Route path="/mappings" element={<MappingsPage />} />            
+              <Route path="/mappings" element={<MappingsPage />} />
+              <Route path="/mappings/new" element={<NewMappingPage />} />
               <Route path="/schema" element={<SchemaPage />} />
             </Routes>
           </div>
