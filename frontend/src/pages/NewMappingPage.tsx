@@ -305,9 +305,17 @@ export function NewMappingPage() {
 
       {/* Main Content - 2 Column Layout */}
       <div className="flex-1 flex overflow-hidden">
-        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex overflow-hidden">
-          {/* Left Column: Configuration Form */}
-          <div className="w-96 bg-white border-r border-neutral-200 flex flex-col">
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin text-primary-500 mx-auto mb-4" />
+              <p className="text-neutral-600">Loading mapping...</p>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex overflow-hidden">
+            {/* Left Column: Configuration Form */}
+            <div className="w-96 bg-white border-r border-neutral-200 flex flex-col">
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
                 <h2 className="text-sm font-semibold text-neutral-900 mb-4">Configuration</h2>
@@ -505,6 +513,7 @@ export function NewMappingPage() {
             )}
           </div>
         </form>
+        )}
       </div>
 
       {/* Confirm Dialog for SQL Query Overwrite */}

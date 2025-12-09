@@ -32,3 +32,37 @@ export interface SqlPreviewResponse {
   rows: any[][];
   row_count: number;
 }
+
+// Column Mapping types
+export type MappingType = 'direct' | 'split' | 'join';
+
+export interface DirectMapping {
+  type: 'direct';
+  source_column: string;
+  target_field: string;
+}
+
+export interface SplitMapping {
+  type: 'split';
+  source_column: string;
+  delimiter: string;
+  target_fields: string[];  // Ordered positions
+}
+
+export interface JoinMapping {
+  type: 'join';
+  source_columns: string[];  // Ordered
+  separator: string;
+  target_field: string;
+}
+
+export type ColumnMapping = DirectMapping | SplitMapping | JoinMapping;
+
+export interface ColumnMappingConfiguration {
+  _id?: string;
+  mapping_id: string;
+  target_schema_id: string;
+  column_mappings: ColumnMapping[];
+  created_at?: string;
+  updated_at?: string;
+}

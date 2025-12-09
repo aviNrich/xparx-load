@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Any
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List, Any, Union, Literal, Annotated
 from datetime import datetime
 from bson import ObjectId
 
@@ -42,6 +42,55 @@ class MappingUpdate(BaseModel):
 
 
 class MappingResponse(MappingBase):
+    id: str = Field(alias="_id")
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+
+
+# Column Mapping Models for Phase 2
+
+class DirectMapping(BaseModel):
+    type: Literal["direct"]
+    source_column: str
+    target_field: str
+
+
+class SplitMapping(BaseModel):
+    type: Literal["split"]
+    source_column: str
+    delimiter: str
+    target_fields: List[str]  # Ordered positions
+
+
+class JoinMapping(BaseModel):
+    type: Literal["join"]
+    source_columns: List[str]  # Ordered
+    separator: str
+    target_field: str
+
+
+# Discriminated union for all mapping types
+ColumnMapping = Annotated[
+    Union[DirectMapping, SplitMapping, JoinMapping],
+    Field(discriminator="type")
+]
+
+
+class ColumnMappingConfigurationBase(BaseModel):
+    mapping_id: str
+    target_schema_id: str
+    column_mappings: List[ColumnMapping]
+
+
+class ColumnMappingCreate(ColumnMappingConfigurationBase):
+    pass
+
+
+class ColumnMappingResponse(ColumnMappingConfigurationBase):
     id: str = Field(alias="_id")
     created_at: datetime
     updated_at: datetime

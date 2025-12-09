@@ -10,7 +10,9 @@ from ..schemas.mapping import (
     SqlPreviewResponse,
     MappingCreate,
     MappingUpdate,
-    MappingResponse
+    MappingResponse,
+    ColumnMappingCreate,
+    ColumnMappingResponse
 )
 from ..utils.encryption import decrypt_password
 from ..utils.exceptions import ConnectionNotFoundError
@@ -21,6 +23,7 @@ class MappingService:
         self.db = db
         self.collection = db.connections  # Use connections collection to get connection info
         self.mappings_collection = db.mappings  # For storing mappings
+        self.column_mappings_collection = db.column_mappings  # For storing column mappings
 
     def _build_connection_string(self, connection_doc: dict) -> str:
         """Build SQLAlchemy connection string from connection document"""
@@ -265,3 +268,86 @@ class MappingService:
             raise ValueError(f"Mapping not found: {mapping_id}")
 
         return True
+
+    # Column Mapping CRUD operations
+    def create_column_mapping(self, config: ColumnMappingCreate) -> ColumnMappingResponse:
+        """Create a new column mapping configuration"""
+        # Validate mapping exists
+        if not ObjectId.is_valid(config.mapping_id):
+            raise ValueError(f"Invalid mapping ID: {config.mapping_id}")
+
+        mapping = self.mappings_collection.find_one({"_id": ObjectId(config.mapping_id)})
+        if not mapping:
+            raise ValueError(f"Mapping not found: {config.mapping_id}")
+
+        # Validate target schema exists
+        if not ObjectId.is_valid(config.target_schema_id):
+            raise ValueError(f"Invalid schema ID: {config.target_schema_id}")
+
+        schema = self.db.table_schemas.find_one({"_id": ObjectId(config.target_schema_id)})
+        if not schema:
+            raise ValueError(f"Schema not found: {config.target_schema_id}")
+
+        config_dict = config.model_dump()
+
+        # Add timestamps
+        now = datetime.utcnow()
+        config_dict["created_at"] = now
+        config_dict["updated_at"] = now
+
+        try:
+            result = self.column_mappings_collection.insert_one(config_dict)
+            config_dict["_id"] = str(result.inserted_id)
+            return ColumnMappingResponse(**config_dict)
+        except Exception as e:
+            raise Exception(f"Failed to create column mapping: {str(e)}")
+
+    def get_column_mapping(self, mapping_id: str) -> Optional[ColumnMappingResponse]:
+        """Get column mapping configuration by mapping_id"""
+        if not ObjectId.is_valid(mapping_id):
+            raise ValueError(f"Invalid mapping ID: {mapping_id}")
+
+        config = self.column_mappings_collection.find_one({"mapping_id": mapping_id})
+        if not config:
+            return None
+
+        config["_id"] = str(config["_id"])
+        return ColumnMappingResponse(**config)
+
+    def update_column_mapping(self, mapping_id: str, update: ColumnMappingCreate) -> ColumnMappingResponse:
+        """Update existing column mapping configuration"""
+        if not ObjectId.is_valid(mapping_id):
+            raise ValueError(f"Invalid mapping ID: {mapping_id}")
+
+        # Validate target schema if provided
+        if update.target_schema_id:
+            if not ObjectId.is_valid(update.target_schema_id):
+                raise ValueError(f"Invalid schema ID: {update.target_schema_id}")
+
+            schema = self.db.table_schemas.find_one({"_id": ObjectId(update.target_schema_id)})
+            if not schema:
+                raise ValueError(f"Schema not found: {update.target_schema_id}")
+
+        update_dict = update.model_dump()
+        update_dict["updated_at"] = datetime.utcnow()
+
+        result = self.column_mappings_collection.find_one_and_update(
+            {"mapping_id": mapping_id},
+            {"$set": update_dict},
+            return_document=True,
+            upsert=True  # Create if doesn't exist
+        )
+
+        if not result:
+            raise ValueError(f"Failed to update column mapping for mapping: {mapping_id}")
+
+        result["_id"] = str(result["_id"])
+        return ColumnMappingResponse(**result)
+
+    def delete_column_mapping(self, mapping_id: str) -> bool:
+        """Delete a column mapping configuration"""
+        if not ObjectId.is_valid(mapping_id):
+            raise ValueError(f"Invalid mapping ID: {mapping_id}")
+
+        result = self.column_mappings_collection.delete_one({"mapping_id": mapping_id})
+        return result.deleted_count > 0

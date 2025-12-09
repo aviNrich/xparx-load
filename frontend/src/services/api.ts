@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Connection, ConnectionFormData, TestConnectionResult } from '../types/connection';
 import { TableSchema, TableSchemaFormData } from '../types/schema';
-import { TableInfo, SqlPreviewRequest, SqlPreviewResponse, Mapping, MappingFormData } from '../types/mapping';
+import { TableInfo, SqlPreviewRequest, SqlPreviewResponse, Mapping, MappingFormData, ColumnMappingConfiguration } from '../types/mapping';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -126,6 +126,38 @@ export const mappingAPI = {
   previewSql: async (data: SqlPreviewRequest): Promise<SqlPreviewResponse> => {
     const response = await api.post<SqlPreviewResponse>('/mappings/preview', data);
     return response.data;
+  },
+};
+
+export const columnMappingAPI = {
+  // Create column mapping configuration
+  create: async (config: Omit<ColumnMappingConfiguration, '_id' | 'created_at' | 'updated_at'>): Promise<ColumnMappingConfiguration> => {
+    const response = await api.post<ColumnMappingConfiguration>(`/mappings/${config.mapping_id}/column-mappings`, config);
+    return response.data;
+  },
+
+  // Get column mapping configuration by mapping ID
+  get: async (mappingId: string): Promise<ColumnMappingConfiguration | null> => {
+    try {
+      const response = await api.get<ColumnMappingConfiguration>(`/mappings/${mappingId}/column-mappings`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  // Update column mapping configuration (upsert)
+  update: async (config: Omit<ColumnMappingConfiguration, '_id' | 'created_at' | 'updated_at'>): Promise<ColumnMappingConfiguration> => {
+    const response = await api.put<ColumnMappingConfiguration>(`/mappings/${config.mapping_id}/column-mappings`, config);
+    return response.data;
+  },
+
+  // Delete column mapping configuration
+  delete: async (mappingId: string): Promise<void> => {
+    await api.delete(`/mappings/${mappingId}/column-mappings`);
   },
 };
 
