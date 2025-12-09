@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SchemaList } from '../components/schemas/SchemaList';
 import { SchemaForm } from '../components/schemas/SchemaForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { Button } from '../components/ui/button';
 import { useSchemas } from '../hooks/useSchemas';
 import { TableSchema, TableSchemaFormData } from '../types/schema';
@@ -11,6 +12,10 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 export function SchemaPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSchema, setEditingSchema] = useState<TableSchema | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [schemaToDelete, setSchemaToDelete] = useState<TableSchema | null>(null);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const {
     schemas,
@@ -32,7 +37,8 @@ export function SchemaPage() {
       setEditingSchema(null);
     } catch (err) {
       console.error('Failed to save schema:', err);
-      alert(err instanceof Error ? err.message : 'Failed to save schema');
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to save schema');
+      setErrorDialogOpen(true);
     }
   };
 
@@ -41,14 +47,21 @@ export function SchemaPage() {
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (schema: TableSchema) => {
-    if (window.confirm(`Are you sure you want to delete the "${schema.name}" schema?`)) {
-      try {
-        await deleteSchema(schema._id);
-      } catch (err) {
-        console.error('Failed to delete schema:', err);
-        alert(err instanceof Error ? err.message : 'Failed to delete schema');
-      }
+  const handleDelete = (schema: TableSchema) => {
+    setSchemaToDelete(schema);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!schemaToDelete) return;
+
+    try {
+      await deleteSchema(schemaToDelete._id);
+      setSchemaToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete schema:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete schema');
+      setErrorDialogOpen(true);
     }
   };
 
@@ -167,6 +180,32 @@ export function SchemaPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete Schema"
+        description={`Are you sure you want to delete the "${schemaToDelete?.name}" schema? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={confirmDelete}
+        onCancel={() => setSchemaToDelete(null)}
+      />
+
+      {/* Error Dialog */}
+      {errorMessage && (
+        <ConfirmDialog
+          open={errorDialogOpen}
+          onOpenChange={setErrorDialogOpen}
+          title="Error"
+          description={errorMessage}
+          confirmText="OK"
+          variant="destructive"
+          onConfirm={() => setErrorDialogOpen(false)}
+        />
+      )}
     </>
   );
 }

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { ConnectionList } from '../components/connections/ConnectionList';
 import { ConnectionForm } from '../components/connections/ConnectionForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { Button } from '../components/ui/button';
 import { useConnections } from '../hooks/useConnections';
 import { Connection, ConnectionFormData } from '../types/connection';
@@ -13,6 +14,10 @@ export function SourcesPage() {
   const location = useLocation();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [connectionToDelete, setConnectionToDelete] = useState<Connection | null>(null);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Check if we should open the dialog from navigation state
   useEffect(() => {
@@ -43,7 +48,8 @@ export function SourcesPage() {
       setEditingConnection(null);
     } catch (err) {
       console.error('Failed to save connection:', err);
-      alert(err instanceof Error ? err.message : 'Failed to save connection');
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to save connection');
+      setErrorDialogOpen(true);
     }
   };
 
@@ -52,14 +58,21 @@ export function SourcesPage() {
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (connection: Connection) => {
-    if (window.confirm(`Are you sure you want to delete "${connection.name}"?`)) {
-      try {
-        await deleteConnection(connection._id);
-      } catch (err) {
-        console.error('Failed to delete connection:', err);
-        alert(err instanceof Error ? err.message : 'Failed to delete connection');
-      }
+  const handleDelete = (connection: Connection) => {
+    setConnectionToDelete(connection);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!connectionToDelete) return;
+
+    try {
+      await deleteConnection(connectionToDelete._id);
+      setConnectionToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete connection:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete connection');
+      setErrorDialogOpen(true);
     }
   };
 
@@ -155,6 +168,32 @@ export function SourcesPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete Connection"
+        description={`Are you sure you want to delete "${connectionToDelete?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={confirmDelete}
+        onCancel={() => setConnectionToDelete(null)}
+      />
+
+      {/* Error Dialog */}
+      {errorMessage && (
+        <ConfirmDialog
+          open={errorDialogOpen}
+          onOpenChange={setErrorDialogOpen}
+          title="Error"
+          description={errorMessage}
+          confirmText="OK"
+          variant="destructive"
+          onConfirm={() => setErrorDialogOpen(false)}
+        />
+      )}
     </>
   );
 }

@@ -27,7 +27,6 @@ class MappingBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     source_connection_id: str
-    source_table: str
     sql_query: str
 
 
@@ -39,7 +38,6 @@ class MappingUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     source_connection_id: Optional[str] = None
-    source_table: Optional[str] = None
     sql_query: Optional[str] = None
 
 

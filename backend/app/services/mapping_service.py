@@ -1,9 +1,17 @@
 from pymongo.database import Database
 from bson import ObjectId
 from sqlalchemy import create_engine, text, inspect
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 import re
-from ..schemas.mapping import TableInfoResponse, SqlPreviewRequest, SqlPreviewResponse
+from ..schemas.mapping import (
+    TableInfoResponse,
+    SqlPreviewRequest,
+    SqlPreviewResponse,
+    MappingCreate,
+    MappingUpdate,
+    MappingResponse
+)
 from ..utils.encryption import decrypt_password
 from ..utils.exceptions import ConnectionNotFoundError
 
@@ -12,6 +20,7 @@ class MappingService:
     def __init__(self, db: Database):
         self.db = db
         self.collection = db.connections  # Use connections collection to get connection info
+        self.mappings_collection = db.mappings  # For storing mappings
 
     def _build_connection_string(self, connection_doc: dict) -> str:
         """Build SQLAlchemy connection string from connection document"""
@@ -186,3 +195,73 @@ class MappingService:
             return value.isoformat()
         else:
             return value
+
+    # CRUD operations for mappings
+    def create_mapping(self, mapping: MappingCreate) -> MappingResponse:
+        """Create a new mapping"""
+        mapping_dict = mapping.model_dump()
+
+        # Add timestamps
+        now = datetime.utcnow()
+        mapping_dict["created_at"] = now
+        mapping_dict["updated_at"] = now
+
+        try:
+            result = self.mappings_collection.insert_one(mapping_dict)
+            mapping_dict["_id"] = str(result.inserted_id)
+            return MappingResponse(**mapping_dict)
+        except Exception as e:
+            raise Exception(f"Failed to create mapping: {str(e)}")
+
+    def get_mapping(self, mapping_id: str) -> MappingResponse:
+        """Get a single mapping by ID"""
+        if not ObjectId.is_valid(mapping_id):
+            raise ValueError(f"Invalid mapping ID: {mapping_id}")
+
+        mapping = self.mappings_collection.find_one({"_id": ObjectId(mapping_id)})
+        if not mapping:
+            raise ValueError(f"Mapping not found: {mapping_id}")
+
+        mapping["_id"] = str(mapping["_id"])
+        return MappingResponse(**mapping)
+
+    def list_mappings(self) -> List[MappingResponse]:
+        """List all mappings"""
+        mappings = list(self.mappings_collection.find().sort("updated_at", -1))
+        for mapping in mappings:
+            mapping["_id"] = str(mapping["_id"])
+        return [MappingResponse(**mapping) for mapping in mappings]
+
+    def update_mapping(self, mapping_id: str, update: MappingUpdate) -> MappingResponse:
+        """Update an existing mapping"""
+        if not ObjectId.is_valid(mapping_id):
+            raise ValueError(f"Invalid mapping ID: {mapping_id}")
+
+        update_dict = update.model_dump(exclude_unset=True)
+        if not update_dict:
+            return self.get_mapping(mapping_id)
+
+        update_dict["updated_at"] = datetime.utcnow()
+
+        result = self.mappings_collection.find_one_and_update(
+            {"_id": ObjectId(mapping_id)},
+            {"$set": update_dict},
+            return_document=True
+        )
+
+        if not result:
+            raise ValueError(f"Mapping not found: {mapping_id}")
+
+        result["_id"] = str(result["_id"])
+        return MappingResponse(**result)
+
+    def delete_mapping(self, mapping_id: str) -> bool:
+        """Delete a mapping"""
+        if not ObjectId.is_valid(mapping_id):
+            raise ValueError(f"Invalid mapping ID: {mapping_id}")
+
+        result = self.mappings_collection.delete_one({"_id": ObjectId(mapping_id)})
+        if result.deleted_count == 0:
+            raise ValueError(f"Mapping not found: {mapping_id}")
+
+        return True

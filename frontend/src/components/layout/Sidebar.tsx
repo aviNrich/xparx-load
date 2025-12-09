@@ -29,9 +29,12 @@ export function Sidebar({ activeItem, onItemClick }: SidebarProps) {
   const currentPath = location.pathname;
 
   // Find which item should be active based on current path or activeItem prop
-  const activeMenuItemId = allMenuItems.find(item =>
-    item.path ? item.path === currentPath : item.id === activeItem
-  )?.id;
+  // Check if path matches exactly or if current path starts with item path (for sub-routes)
+  const activeMenuItemId = allMenuItems.find(item => {
+    if (!item.path) return item.id === activeItem;
+    // Exact match or path starts with item.path (for sub-routes like /mappings/new)
+    return currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
+  })?.id;
 
   const handleMenuClick = (item: typeof topMenuItems[0]) => {
     if (item.path) {

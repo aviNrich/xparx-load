@@ -1,18 +1,47 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MappingList } from '../components/mappings/MappingList';
 import { Button } from '../components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { useMappings } from '../hooks/useMappings';
+import { Mapping } from '../types/mapping';
 
 export const MappingsPage = () => {
   const navigate = useNavigate();
+  const { mappings, loading, error, deleteMapping } = useMappings();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [mappingToDelete, setMappingToDelete] = useState<Mapping | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
 
   const handleNewMapping = () => {
     navigate('/mappings/new');
   };
 
-  // Empty array for Phase 1 - no saved mappings yet
-  const mappings = [];
+  const handleEdit = (mapping: Mapping) => {
+    // Navigate to readonly view of the mapping
+    navigate(`/mappings/${mapping._id}`);
+  };
+
+  const handleDelete = (mapping: Mapping) => {
+    setMappingToDelete(mapping);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!mappingToDelete) return;
+
+    try {
+      await deleteMapping(mappingToDelete._id);
+      setMappingToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete mapping:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete mapping');
+      setErrorDialogOpen(true);
+    }
+  };
 
   return (
     <>
@@ -33,11 +62,57 @@ export const MappingsPage = () => {
         </div>
       </div>
 
-      {/* Mapping List */}
-      <MappingList
-        mappings={mappings}
-        onNew={handleNewMapping}
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex justify-center items-center py-24">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary-500 mx-auto mb-4" />
+            <p className="text-neutral-600">Loading mappings...</p>
+          </div>
+        </div>
+      ) : (
+        /* Mapping List */
+        <MappingList
+          mappings={mappings}
+          onNew={handleNewMapping}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete Mapping"
+        description={`Are you sure you want to delete the "${mappingToDelete?.name}" mapping? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={confirmDelete}
+        onCancel={() => setMappingToDelete(null)}
       />
+
+      {/* Error Dialog */}
+      {errorMessage && (
+        <ConfirmDialog
+          open={errorDialogOpen}
+          onOpenChange={setErrorDialogOpen}
+          title="Error"
+          description={errorMessage}
+          confirmText="OK"
+          variant="destructive"
+          onConfirm={() => setErrorDialogOpen(false)}
+        />
+      )}
     </>
   );
 }

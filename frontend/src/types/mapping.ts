@@ -3,7 +3,6 @@ export interface Mapping {
   name: string;
   description?: string;
   source_connection_id: string;
-  source_table: string;
   sql_query: string;
   created_at: string;
   updated_at: string;
@@ -13,7 +12,6 @@ export interface MappingFormData {
   name: string;
   description?: string;
   source_connection_id: string;
-  source_table: string;
   sql_query: string;
 }
 

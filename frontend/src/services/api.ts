@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Connection, ConnectionFormData, TestConnectionResult } from '../types/connection';
 import { TableSchema, TableSchemaFormData } from '../types/schema';
-import { TableInfo, SqlPreviewRequest, SqlPreviewResponse } from '../types/mapping';
+import { TableInfo, SqlPreviewRequest, SqlPreviewResponse, Mapping, MappingFormData } from '../types/mapping';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -87,6 +87,35 @@ export const schemaAPI = {
 };
 
 export const mappingAPI = {
+  // List all mappings
+  list: async (): Promise<Mapping[]> => {
+    const response = await api.get<Mapping[]>('/mappings/');
+    return response.data;
+  },
+
+  // Get single mapping
+  get: async (id: string): Promise<Mapping> => {
+    const response = await api.get<Mapping>(`/mappings/${id}`);
+    return response.data;
+  },
+
+  // Create new mapping
+  create: async (data: MappingFormData): Promise<Mapping> => {
+    const response = await api.post<Mapping>('/mappings/', data);
+    return response.data;
+  },
+
+  // Update mapping
+  update: async (id: string, data: Partial<MappingFormData>): Promise<Mapping> => {
+    const response = await api.put<Mapping>(`/mappings/${id}`, data);
+    return response.data;
+  },
+
+  // Delete mapping
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/mappings/${id}`);
+  },
+
   // List tables from a connection
   listTables: async (connectionId: string): Promise<TableInfo[]> => {
     const response = await api.get<TableInfo[]>(`/mappings/connections/${connectionId}/tables`);

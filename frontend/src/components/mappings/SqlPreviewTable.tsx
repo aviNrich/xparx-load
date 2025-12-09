@@ -1,5 +1,4 @@
 import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Database, Loader2 } from 'lucide-react';
 
 interface SqlPreviewTableProps {
@@ -11,12 +10,10 @@ interface SqlPreviewTableProps {
 export function SqlPreviewTable({ columns, rows, loading }: SqlPreviewTableProps) {
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary-500 mx-auto mb-4" />
-            <p className="text-neutral-600">Executing query...</p>
-          </div>
+      <div className="h-full bg-white rounded-xl border border-neutral-200 overflow-hidden flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary-500 mx-auto mb-4" />
+          <p className="text-neutral-600">Executing query...</p>
         </div>
       </div>
     );
@@ -24,8 +21,8 @@ export function SqlPreviewTable({ columns, rows, loading }: SqlPreviewTableProps
 
   if (columns.length === 0 || rows.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-        <div className="text-center py-16">
+      <div className="h-full bg-white rounded-xl border border-neutral-200 overflow-hidden flex items-center justify-center">
+        <div className="text-center">
           <Database className="mx-auto h-16 w-16 text-neutral-400 mb-4" />
           <h3 className="text-lg font-semibold text-neutral-900 mb-2">No results found</h3>
           <p className="text-neutral-600">Your query returned no data.</p>
@@ -50,9 +47,9 @@ export function SqlPreviewTable({ columns, rows, loading }: SqlPreviewTableProps
   };
 
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+    <div className="h-full bg-white rounded-xl border border-neutral-200 overflow-hidden flex flex-col">
       {/* Header with row count */}
-      <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50">
+      <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-neutral-900">
             Query Results
@@ -63,32 +60,35 @@ export function SqlPreviewTable({ columns, rows, loading }: SqlPreviewTableProps
         </div>
       </div>
 
-      {/* Scrollable table container */}
-      <div className="overflow-auto" style={{ maxHeight: '400px' }}>
-        <Table>
-          <TableHeader>
-            <TableRow>
+      {/* Scrollable table container - both horizontal and vertical */}
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50 border-b border-neutral-200 sticky top-0 z-10">
+            <tr>
               {columns.map((column, idx) => (
-                <TableHead key={idx} className="sticky top-0 bg-neutral-50 z-10">
+                <th
+                  key={idx}
+                  className="text-left py-3 px-4 text-xs font-semibold text-neutral-700 whitespace-nowrap"
+                >
                   {column}
-                </TableHead>
+                </th>
               ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-100">
             {rows.map((row, rowIdx) => (
-              <TableRow key={rowIdx}>
+              <tr key={rowIdx} className="hover:bg-neutral-50 transition-colors">
                 {row.map((cell, cellIdx) => (
-                  <TableCell key={cellIdx} className="font-mono text-xs">
+                  <td key={cellIdx} className="py-3 px-4 text-xs text-neutral-700 font-mono whitespace-nowrap">
                     <span className={cell === null || cell === undefined ? 'text-neutral-400 italic' : ''}>
                       {formatCellValue(cell)}
                     </span>
-                  </TableCell>
+                  </td>
                 ))}
-              </TableRow>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     </div>
   );

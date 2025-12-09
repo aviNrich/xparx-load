@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
+import Editor from '@monaco-editor/react';
 import { Mapping } from '../../types/mapping';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Pencil, Trash2, Workflow, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Pencil, Trash2, Workflow, Plus, Eye } from 'lucide-react';
 
 interface MappingListProps {
   mappings: Mapping[];
@@ -12,6 +13,14 @@ interface MappingListProps {
 }
 
 export function MappingList({ mappings, onEdit, onDelete, onNew }: MappingListProps) {
+  const [queryDialogOpen, setQueryDialogOpen] = useState(false);
+  const [selectedQuery, setSelectedQuery] = useState<string>('');
+
+  const handleViewQuery = (query: string) => {
+    setSelectedQuery(query);
+    setQueryDialogOpen(true);
+  };
+
   if (mappings.length === 0) {
     return (
       <div className="text-center py-24 bg-white rounded-xl border border-neutral-200">
@@ -44,7 +53,7 @@ export function MappingList({ mappings, onEdit, onDelete, onNew }: MappingListPr
                 Source
               </th>
               <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
-                Table
+                Query
               </th>
               <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
                 Created
@@ -77,9 +86,22 @@ export function MappingList({ mappings, onEdit, onDelete, onNew }: MappingListPr
                   <span className="text-sm text-neutral-700">{mapping.source_connection_id}</span>
                 </td>
                 <td className="py-4 px-4">
-                  <Badge variant="secondary" className="text-xs font-medium font-mono">
-                    {mapping.source_table}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-neutral-700 truncate max-w-xs">
+                      {mapping.sql_query.length > 50
+                        ? `${mapping.sql_query.substring(0, 50)}...`
+                        : mapping.sql_query}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleViewQuery(mapping.sql_query)}
+                      className="h-6 w-6 p-0 hover:bg-neutral-100"
+                      title="View full query"
+                    >
+                      <Eye className="h-3 w-3 text-neutral-600" />
+                    </Button>
+                  </div>
                 </td>
                 <td className="py-4 px-4">
                   <span className="text-xs text-neutral-500">
@@ -115,6 +137,32 @@ export function MappingList({ mappings, onEdit, onDelete, onNew }: MappingListPr
           </tbody>
         </table>
       </div>
+
+      {/* Query View Dialog */}
+      <Dialog open={queryDialogOpen} onOpenChange={setQueryDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>SQL Query</DialogTitle>
+          </DialogHeader>
+          <div className="border border-neutral-300 rounded-md overflow-hidden" style={{ height: '400px' }}>
+            <Editor
+              height="100%"
+              language="sql"
+              theme="vs-light"
+              value={selectedQuery}
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 13,
+                lineNumbers: 'on',
+                automaticLayout: true,
+                padding: { top: 8, bottom: 8 },
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

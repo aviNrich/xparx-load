@@ -7,8 +7,10 @@ import { ItemSuppliers } from './components/dashboard/ItemSuppliers';
 import { SourcesPage } from './pages/SourcesPage';
 import { Search, Calendar, FileDown, Plus } from 'lucide-react';
 import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
 import { MappingsPage } from './pages/MappingsPage';
 import { NewMappingPage } from './pages/NewMappingPage';
+import { ColumnMappingPage } from './pages/ColumnMappingPage';
 import { SchemaPage } from './pages/SchemaPage';
 
 function DashboardPage() {
@@ -30,11 +32,11 @@ function DashboardPage() {
         <div className="flex items-center gap-3">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4" />
-            <input
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4 z-10" />
+            <Input
               type="text"
               placeholder="Search"
-              className="pl-10 pr-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64"
+              className="pl-10 pr-16 w-64 text-sm"
             />
             <kbd className="absolute right-3 top-1/2 transform -translate-y-1/2 px-2 py-0.5 text-xs bg-neutral-100 rounded border border-neutral-300">
               ⌘F
@@ -127,6 +129,8 @@ function App() {
               <Route path="/sources" element={<SourcesPage />} />
               <Route path="/mappings" element={<MappingsPage />} />
               <Route path="/mappings/new" element={<NewMappingPage />} />
+              <Route path="/mappings/:mappingId" element={<NewMappingPage />} />
+              <Route path="/mappings/:mappingId/columns" element={<ColumnMappingPage />} />
               <Route path="/schema" element={<SchemaPage />} />
             </Routes>
           </div>
