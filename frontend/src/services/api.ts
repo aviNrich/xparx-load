@@ -161,4 +161,23 @@ export const columnMappingAPI = {
   },
 };
 
+// Execution API (proxied through backend)
+export interface ExecutionResponse {
+  execution_id: string;
+  mapping_id: string;
+  status: 'success' | 'failed';
+  rows_written: number;
+  execution_time: string;
+  delta_table_path: string | null;
+  error_message: string | null;
+}
+
+export const executionAPI = {
+  // Execute a mapping (calls backend which proxies to execution service)
+  run: async (mappingId: string): Promise<ExecutionResponse> => {
+    const response = await api.post<ExecutionResponse>(`/mappings/${mappingId}/run`);
+    return response.data;
+  },
+};
+
 export default api;

@@ -1,15 +1,18 @@
-# ETL Engine - Source Connection Manager
+# ETL Engine - Complete ETL System
 
-Phase 1 of a modern ETL (Extract, Transform, Load) system with an impressive UI for management pitch.
+A modern ETL (Extract, Transform, Load) system with mapping configuration and execution capabilities.
 
 ## Features
 
-- **Source Connection Management**: Create, read, update, and delete database connections
-- **Supported Databases**: MySQL and PostgreSQL
-- **Connection Testing**: Test-before-save functionality with real-time feedback
+- **Source Connection Management**: Create, read, update, and delete database connections (MySQL, PostgreSQL)
+- **Mapping Configuration**: Define ETL mappings with source queries and column transformations
+- **Column Transformations**: Support for direct, split, and join mappings
+- **Schema Management**: Define target table schemas
+- **ETL Execution**: Execute mappings and write to Delta Lake with schema evolution
 - **Modern UI**: Purple & grey color scheme with smooth animations
 - **Secure Storage**: Encrypted password storage using Fernet encryption
 - **REST API**: Full CRUD API with FastAPI
+- **Delta Lake**: ACID transactions with automatic schema evolution
 
 ## Tech Stack
 
@@ -19,6 +22,12 @@ Phase 1 of a modern ETL (Extract, Transform, Load) system with an impressive UI 
 - **PyMongo**: MongoDB driver
 - **SQLAlchemy**: Database connection testing
 - **Cryptography**: Password encryption
+
+### Execution Service
+- **FastAPI**: REST API for execution
+- **PySpark**: Distributed data processing
+- **Delta Lake**: ACID-compliant data lake storage
+- **Pandas**: Data transformations
 
 ### Frontend
 - **React** with TypeScript
@@ -79,49 +88,87 @@ npm run dev
 - **Backend API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
 
-## Alternative: Docker Compose
+## Alternative: Docker Compose (Recommended)
 
 ```bash
 # Generate encryption key
 python -c "from cryptography.fernet import Fernet; print('ENCRYPTION_KEY=' + Fernet.generate_key().decode())" > .env
 
-# Start all services
+# Start all services (MongoDB, Backend, Frontend, Execution Service)
 docker-compose up --build
 ```
+
+**Services:**
+- MongoDB: `localhost:27017`
+- Backend API: `localhost:8000`
+- Execution Service: `localhost:8001`
+- Frontend: `localhost:5173`
 
 ## Project Structure
 
 ```
 etl-engine-3/
-├── backend/                 # FastAPI backend
+├── backend/                 # FastAPI backend (port 8000)
 │   ├── app/
 │   │   ├── main.py         # Application entry
 │   │   ├── config.py       # Configuration
 │   │   ├── database.py     # MongoDB connection
 │   │   ├── schemas/        # Pydantic models
 │   │   ├── services/       # Business logic
-│   │   ├── routers/        # API endpoints
+│   │   ├── routers/        # API endpoints (connections, mappings, schemas)
 │   │   └── utils/          # Utilities (encryption, etc.)
 │   └── requirements.txt
-├── frontend/               # React frontend
+├── execution-service/       # ETL execution service (port 8001)
+│   ├── app/
+│   │   ├── main.py         # Application entry
+│   │   ├── config.py       # Configuration
+│   │   ├── database.py     # MongoDB connection
+│   │   ├── routers/        # API endpoints (executions)
+│   │   ├── services/       # Execution & Delta Lake logic
+│   │   ├── schemas/        # Pydantic models
+│   │   └── utils/          # Utilities (encryption, exceptions)
+│   ├── requirements.txt
+│   └── README.md           # Execution service docs
+├── frontend/               # React frontend (port 5173)
 │   ├── src/
 │   │   ├── components/     # React components
 │   │   ├── services/       # API client
 │   │   ├── hooks/          # Custom hooks
 │   │   └── types/          # TypeScript types
 │   └── package.json
-└── SPECIFICATION.md        # Detailed specification
+├── docker-compose.yml      # All services orchestration
+└── README.md               # This file
 ```
 
 ## API Endpoints
 
+### Backend (port 8000)
+**Connections:**
 - `POST /api/v1/connections/` - Create connection
 - `GET /api/v1/connections/` - List all connections
 - `GET /api/v1/connections/{id}` - Get single connection
 - `PUT /api/v1/connections/{id}` - Update connection
 - `DELETE /api/v1/connections/{id}` - Delete connection
 - `POST /api/v1/connections/test` - Test new connection
-- `POST /api/v1/connections/{id}/test` - Test existing connection
+
+**Mappings:**
+- `POST /api/v1/mappings/` - Create mapping
+- `GET /api/v1/mappings/` - List all mappings
+- `GET /api/v1/mappings/{id}` - Get mapping
+- `PUT /api/v1/mappings/{id}` - Update mapping
+- `DELETE /api/v1/mappings/{id}` - Delete mapping
+- `POST /api/v1/mappings/preview` - Preview SQL query
+- `POST /api/v1/mappings/{id}/column-mappings` - Create column mappings
+- `GET /api/v1/mappings/{id}/column-mappings` - Get column mappings
+
+**Schemas:**
+- `POST /api/v1/schemas/` - Create table schema
+- `GET /api/v1/schemas/` - List all schemas
+- `GET /api/v1/schemas/{id}` - Get schema
+
+### Execution Service (port 8001)
+- `POST /api/v1/executions/run` - Execute ETL mapping
+- `GET /health` - Health check
 
 ## UI Features
 
@@ -144,14 +191,35 @@ etl-engine-3/
 - **Input Validation**: Pydantic schemas validate all inputs
 - **SQL Injection Prevention**: SQLAlchemy parameterized queries
 
-## Next Steps (Phase 2)
+## ETL Execution Flow
+
+1. **Configure Connection**: Create database connection in UI
+2. **Create Mapping**: Define source SQL query and target schema
+3. **Column Mappings**: Configure transformations (direct, split, join)
+4. **Execute**: Call execution service API to run ETL
+5. **Delta Lake**: Data written to Delta Lake with schema evolution
+
+## Column Mapping Types
+
+- **Direct**: 1:1 column mapping (e.g., `source_col` → `target_field`)
+- **Split**: Split one column into multiple fields by delimiter (e.g., `"John,Doe"` → `first_name`, `last_name`)
+- **Join**: Join multiple columns into one with separator (e.g., `first_name + last_name` → `"John Doe"`)
+
+## Delta Lake Features
+
+- **Schema Evolution**: Automatically adds new columns
+- **Type Safety**: Prevents type changes (e.g., string → integer)
+- **ACID Transactions**: Rollback on failure, no partial writes
+- **Metadata Tracking**: Automatic `mapping_id` and `execution_time` columns
+
+## Next Steps
 
 - Add more database types (Oracle, SQL Server, Redshift, Snowflake)
-- Implement ETL pipeline configuration
-- Add scheduling and monitoring
+- Implement ETL scheduling (currently on-demand only)
+- Add execution history and monitoring
 - User authentication and permissions
-- Connection health dashboard
-- Automated testing schedules
+- Data quality validation rules
+- Incremental load strategies
 
 ## License
 

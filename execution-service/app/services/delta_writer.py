@@ -1,0 +1,177 @@
+from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.types import (
+    StructType,
+    StructField,
+    StringType,
+    IntegerType,
+    DateType,
+    BooleanType,
+)
+from delta.tables import DeltaTable
+from typing import List, Dict, Any
+import os
+from ..config import get_settings
+from ..utils.exceptions import SchemaValidationError, DeltaWriteError
+import sys
+
+settings = get_settings()
+
+# Singleton Spark session
+_spark = None
+
+
+def get_spark_session() -> SparkSession:
+    os.environ["PYSPARK_PYTHON"] = sys.executable
+    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+    """Get or create singleton Spark session with Delta Lake configuration"""
+    global _spark
+    if _spark is None:
+        # Configure Spark with Delta Lake packages
+        _spark = (
+            SparkSession.builder.appName(settings.spark_app_name)
+            .master(settings.spark_master)
+            .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
+            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+            .config(
+                "spark.sql.catalog.spark_catalog",
+                "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+            )
+            .config("spark.sql.warehouse.dir", settings.delta_lake_base_path)
+            .getOrCreate()
+        )
+
+        _spark.sparkContext.setLogLevel("WARN")
+
+    return _spark
+
+
+def map_field_type_to_spark(field_type: str):
+    """Map schema field type to Spark SQL type"""
+    type_mapping = {
+        "string": StringType(),
+        "integer": IntegerType(),
+        "date": DateType(),
+        "boolean": BooleanType(),
+    }
+    return type_mapping.get(field_type, StringType())
+
+
+def create_spark_schema(schema_fields: List[Dict[str, str]]) -> StructType:
+    """Create Spark StructType from schema fields"""
+    fields = []
+    for field in schema_fields:
+        spark_type = map_field_type_to_spark(field["field_type"])
+        fields.append(StructField(field["name"], spark_type, nullable=True))
+
+    # Add metadata columns
+    fields.append(StructField("mapping_id", StringType(), nullable=False))
+    fields.append(StructField("execution_time", StringType(), nullable=False))
+
+    return StructType(fields)
+
+
+def validate_schema_compatibility(
+    existing_schema: StructType, new_schema: StructType, allow_new_columns: bool = True
+) -> None:
+    """
+    Validate that new schema is compatible with existing schema.
+
+    Rules:
+    - No type changes allowed
+    - New columns allowed if allow_new_columns=True
+    - Column removal not allowed
+    """
+    existing_fields = {field.name: field.dataType for field in existing_schema.fields}
+    new_fields = {field.name: field.dataType for field in new_schema.fields}
+
+    # Check for type changes in existing columns
+    for col_name, existing_type in existing_fields.items():
+        if col_name in new_fields:
+            new_type = new_fields[col_name]
+            if str(existing_type) != str(new_type):
+                raise SchemaValidationError(
+                    f"Type mismatch for column '{col_name}': "
+                    f"expected {existing_type}, but got {new_type}. "
+                    f"Type changes are not allowed."
+                )
+
+    # Check for new columns
+    new_columns = set(new_fields.keys()) - set(existing_fields.keys())
+    if new_columns and not allow_new_columns:
+        raise SchemaValidationError(f"New columns are not allowed: {new_columns}")
+
+
+def write_to_delta_lake(
+    data: List[Dict[str, Any]],
+    schema_name: str,
+    schema_fields: List[Dict[str, str]],
+    mapping_id: str,
+    execution_time: str,
+) -> tuple[str, int]:
+    """
+    Write data to Delta Lake table with schema validation.
+
+    Args:
+        data: List of dictionaries containing the data
+        schema_name: Name of the target schema (used as table name)
+        schema_fields: Target schema field definitions
+        mapping_id: Mapping ID for metadata
+        execution_time: Execution timestamp for metadata
+
+    Returns:
+        Tuple of (delta_table_path, row_count)
+
+    Raises:
+        SchemaValidationError: If schema is incompatible
+        DeltaWriteError: If write operation fails
+    """
+    try:
+        spark = get_spark_session()
+
+        # Add metadata columns to each row
+        for row in data:
+            row["mapping_id"] = mapping_id
+            row["execution_time"] = execution_time
+
+        # Create expected schema
+        expected_schema = create_spark_schema(schema_fields)
+
+        # Create Spark DataFrame from data
+        spark_df = spark.createDataFrame(data, schema=expected_schema)
+
+        # Construct Delta Lake table path
+        delta_table_path = os.path.join(settings.delta_lake_base_path, schema_name)
+
+        # Check if table exists and validate schema
+        if DeltaTable.isDeltaTable(spark, delta_table_path):
+            existing_table = DeltaTable.forPath(spark, delta_table_path)
+            existing_schema = existing_table.toDF().schema
+
+            # Validate schema compatibility (no type changes allowed)
+            validate_schema_compatibility(
+                existing_schema, spark_df.schema, allow_new_columns=True
+            )
+
+            # Write with schema merge (only adds new columns)
+            spark_df.write.format("delta").mode("append").option(
+                "mergeSchema", "true"
+            ).save(delta_table_path)
+        else:
+            # First write - create new table
+            spark_df.write.format("delta").mode("append").save(delta_table_path)
+
+        row_count = len(data)
+        return delta_table_path, row_count
+
+    except SchemaValidationError:
+        raise
+    except Exception as e:
+        raise DeltaWriteError(f"Failed to write to Delta Lake: {str(e)}")
+
+
+def stop_spark_session():
+    """Stop Spark session (for cleanup)"""
+    global _spark
+    if _spark:
+        _spark.stop()
+        _spark = None

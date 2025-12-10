@@ -6,7 +6,7 @@ import { Label } from '../components/ui/label';
 import { Input } from '../components/ui/input';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { ArrowLeft, Loader2, AlertCircle, Save, CheckCircle2 } from 'lucide-react';
-import { mappingAPI } from '../services/api';
+import { mappingAPI, executionAPI, ExecutionResponse } from '../services/api';
 import { scheduleAPI } from '../services/schedule.api';
 import { Mapping } from '../types/mapping';
 import { ScheduleMode, ScheduleType, IntervalUnit, WeekDay, ScheduleConfiguration } from '../types/schedule';
@@ -51,7 +51,10 @@ export function SchedulingPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [executionResult, setExecutionResult] = useState<ExecutionResponse | null>(null);
   const [mapping, setMapping] = useState<Mapping | null>(null);
 
   // Schedule configuration state
@@ -128,6 +131,30 @@ export function SchedulingPage() {
 
     loadData();
   }, [mappingId]);
+
+  const handleRunNow = async () => {
+    if (!mappingId) return;
+
+    try {
+      setExecuting(true);
+      setError(null);
+      setSuccess(null);
+
+      const result = await executionAPI.run(mappingId);
+      setExecutionResult(result);
+
+      if (result.status === 'success') {
+        setSuccess(`Successfully executed! ${result.rows_written} rows written to ${result.delta_table_path}`);
+      } else {
+        setError(`Execution failed: ${result.error_message}`);
+      }
+    } catch (err) {
+      console.error('Failed to execute mapping:', err);
+      setError(err instanceof Error ? err.message : 'Failed to execute mapping');
+    } finally {
+      setExecuting(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!mappingId) return;
@@ -243,6 +270,13 @@ export function SchedulingPage() {
             <Alert className="mb-6 bg-red-50 border-red-200">
               <AlertCircle className="h-4 w-4 text-red-600" />
               <AlertDescription className="text-red-600">{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="mb-6 bg-green-50 border-green-200">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-600">{success}</AlertDescription>
             </Alert>
           )}
 
@@ -465,32 +499,65 @@ export function SchedulingPage() {
               </div>
             )}
 
-            {/* Enable/Disable Toggle */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">Enable Schedule</h3>
-                  <p className="text-sm text-neutral-600">
-                    {enabled
-                      ? 'Schedule is active and will run as configured'
-                      : 'Schedule is disabled and will not run'}
-                  </p>
+            {/* Run Now Button (only for "once" mode) */}
+            {mode === 'once' && (
+              <div className="bg-white border border-neutral-200 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Execute Now</h3>
+                    <p className="text-sm text-neutral-600">
+                      Run this ETL mapping immediately
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleRunNow}
+                    disabled={executing}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {executing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Run Now
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setEnabled(!enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    enabled ? 'bg-primary-500' : 'bg-neutral-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      enabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
               </div>
-            </div>
+            )}
+
+            {/* Enable/Disable Toggle (only for "scheduled" mode) */}
+            {mode === 'scheduled' && (
+              <div className="bg-white border border-neutral-200 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Enable Schedule</h3>
+                    <p className="text-sm text-neutral-600">
+                      {enabled
+                        ? 'Schedule is active and will run as configured'
+                        : 'Schedule is disabled and will not run'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEnabled(!enabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      enabled ? 'bg-primary-500' : 'bg-neutral-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        enabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

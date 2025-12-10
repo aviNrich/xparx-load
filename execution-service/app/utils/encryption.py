@@ -8,7 +8,6 @@ settings = get_settings()
 def get_cipher():
     """Get Fernet cipher instance"""
     key = settings.encryption_key.encode()
-    print(f"Using encryption key: {settings.encryption_key}")
     return Fernet(key)
 
 

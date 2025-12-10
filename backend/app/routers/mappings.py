@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pymongo.database import Database
-from typing import List
+from typing import List, Dict, Any
+import httpx
 from ..database import get_database
+from ..config import get_settings
 from ..schemas.mapping import (
     TableInfoResponse,
     SqlPreviewRequest,
@@ -15,6 +17,7 @@ from ..schemas.mapping import (
 from ..services.mapping_service import MappingService
 
 router = APIRouter(prefix="/mappings", tags=["mappings"])
+settings = get_settings()
 
 
 def get_mapping_service(db: Database = Depends(get_database)) -> MappingService:
@@ -233,4 +236,39 @@ def delete_column_mapping(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
+        )
+
+
+# Execution endpoint
+
+@router.post("/{mapping_id}/run")
+async def run_mapping(mapping_id: str) -> Dict[str, Any]:
+    """
+    Execute an ETL mapping by proxying request to execution service.
+
+    Returns execution status, rows written, Delta Lake path, and any errors.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(
+                f"{settings.execution_service_url}/executions/run",
+                json={"mapping_id": mapping_id}
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Execution service error: {response.text}"
+                )
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not connect to execution service: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Execution failed: {str(e)}"
         )
