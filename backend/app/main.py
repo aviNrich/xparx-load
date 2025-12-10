@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .config import get_settings
 from .database import connect_to_mongo, close_mongo_connection
-from .routers import connections, schemas, mappings
+from .routers import connections, schemas, mappings, schedules
 
 settings = get_settings()
 
@@ -37,6 +37,7 @@ app.add_middleware(
 app.include_router(connections.router, prefix=settings.api_v1_prefix)
 app.include_router(schemas.router, prefix=settings.api_v1_prefix)
 app.include_router(mappings.router, prefix=settings.api_v1_prefix)
+app.include_router(schedules.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")

@@ -11,6 +11,7 @@ import { Input } from './components/ui/input';
 import { MappingsPage } from './pages/MappingsPage';
 import { NewMappingPage } from './pages/NewMappingPage';
 import { ColumnMappingPage } from './pages/ColumnMappingPage';
+import { SchedulingPage } from './pages/SchedulingPage';
 import { SchemaPage } from './pages/SchemaPage';
 
 function DashboardPage() {
@@ -131,6 +132,7 @@ function App() {
               <Route path="/mappings/new" element={<NewMappingPage />} />
               <Route path="/mappings/:mappingId" element={<NewMappingPage />} />
               <Route path="/mappings/:mappingId/columns" element={<ColumnMappingPage />} />
+              <Route path="/mappings/:mappingId/schedule" element={<SchedulingPage />} />
               <Route path="/schema" element={<SchemaPage />} />
             </Routes>
           </div>

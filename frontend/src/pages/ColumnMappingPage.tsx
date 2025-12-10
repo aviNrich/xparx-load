@@ -23,6 +23,11 @@ const WIZARD_STEPS: Step[] = [
     label: 'Column Mapping',
     description: 'Map source to target columns',
   },
+  {
+    id: 'scheduling',
+    label: 'Schedule & Execute',
+    description: 'Configure execution schedule',
+  },
 ];
 
 export function ColumnMappingPage() {
@@ -207,8 +212,8 @@ export function ColumnMappingPage() {
         setExistingConfigId(created._id);
       }
 
-      // Navigate back to mappings page
-      navigate('/mappings');
+      // Navigate to scheduling page (Step 3)
+      navigate(`/mappings/${mappingId}/schedule`);
     } catch (err) {
       console.error('Failed to save column mapping:', err);
       setError(err instanceof Error ? err.message : 'Failed to save column mapping');
@@ -271,7 +276,7 @@ export function ColumnMappingPage() {
                 ) : (
                   <>
                     <Save className="h-3 w-3 mr-2" />
-                    Save Mappings
+                    Next: Schedule
                   </>
                 )}
               </Button>
