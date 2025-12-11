@@ -1,7 +1,8 @@
 import { TableSchema } from '../../types/schema';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Pencil, Trash2, Table2 } from 'lucide-react';
+import { Pencil, Trash2, Table2, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SchemaListProps {
   schemas: TableSchema[];
@@ -10,6 +11,8 @@ interface SchemaListProps {
 }
 
 export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
+  const navigate = useNavigate();
+
   if (schemas.length === 0) {
     return (
       <div className="text-center py-24 bg-white rounded-xl border border-neutral-200">
@@ -85,8 +88,18 @@ export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
                     <Button
                       size="sm"
                       variant="outline"
+                      onClick={() => navigate(`/schema/preview/${schema.name}`)}
+                      className="border-primary-200 text-primary-600 hover:bg-primary-50"
+                      title="Preview data"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => onEdit(schema)}
                       className="border-neutral-200 hover:bg-neutral-50"
+                      title="Edit schema"
                     >
                       <Pencil className="h-3 w-3" />
                     </Button>
@@ -95,6 +108,7 @@ export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
                       variant="outline"
                       onClick={() => onDelete(schema)}
                       className="border-red-200 text-red-600 hover:bg-red-50"
+                      title="Delete schema"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, BarChart3, Lightbulb, Bell, Package,Map, ChevronDown, ChevronRight, Settings, MessageCircle, Database } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Lightbulb, Bell, Package, Map, ChevronDown, ChevronRight, Settings, MessageCircle, Database, Eye } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
@@ -19,7 +19,9 @@ export function Sidebar({ activeItem, onItemClick }: SidebarProps) {
   ];
 
   const bottomMenuItems = [
-    { id: 'schema', label: 'Schema', icon: Bell, badge: '8', path:'/schema' },
+    { id: 'schema', label: 'Schema', icon: Bell, badge: '8', path: '/schema', subItems: [
+      { id: 'schema-preview', label: 'Schema Preview', icon: Eye, path: '/schema/preview' }
+    ]},
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'feedback', label: 'Feedback', icon: MessageCircle },
   ];
@@ -35,6 +37,14 @@ export function Sidebar({ activeItem, onItemClick }: SidebarProps) {
     // Exact match or path starts with item.path (for sub-routes like /mappings/new)
     return currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
   })?.id;
+
+  // Find active sub-item
+  const activeSubItemId = allMenuItems
+    .flatMap(item => (item as any).subItems || [])
+    .find((subItem: any) => {
+      if (!subItem.path) return false;
+      return currentPath === subItem.path || currentPath.startsWith(subItem.path);
+    })?.id;
 
   const handleMenuClick = (item: typeof topMenuItems[0]) => {
     if (item.path) {
@@ -161,6 +171,7 @@ export function Sidebar({ activeItem, onItemClick }: SidebarProps) {
           {bottomMenuItems.map((item) => {
             // Check if this item is the single active item
             const isActive = activeMenuItemId === item.id;
+            const hasSubItems = (item as any).subItems && (item as any).subItems.length > 0;
 
             return (
               <li key={item.id}>
@@ -186,6 +197,30 @@ export function Sidebar({ activeItem, onItemClick }: SidebarProps) {
                     </span>
                   )}
                 </button>
+
+                {/* Sub-items - Always visible */}
+                {hasSubItems && (
+                  <ul className="ml-6 mt-1 space-y-1">
+                    {(item as any).subItems.map((subItem: any) => {
+                      const isSubItemActive = activeSubItemId === subItem.id;
+                      return (
+                        <li key={subItem.id}>
+                          <button
+                            onClick={() => navigate(subItem.path)}
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                              isSubItemActive
+                                ? 'text-primary-600 bg-primary-50'
+                                : 'text-neutral-600 hover:bg-neutral-100'
+                            }`}
+                          >
+                            <subItem.icon className="h-3 w-3" />
+                            <span>{subItem.label}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </li>
             );
           })}

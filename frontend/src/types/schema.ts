@@ -20,3 +20,30 @@ export interface TableSchemaFormData {
   description?: string;
   fields: SchemaField[];
 }
+
+// Delta table query types
+export interface ColumnInfo {
+  name: string;
+  type: string;
+}
+
+export interface DeltaQueryRequest {
+  table_name: string;
+  filters?: Record<string, any>;
+  limit?: number;
+  offset?: number;
+}
+
+export interface DeltaQueryResponse {
+  data: Record<string, any>[];
+  total_count: number;
+  columns: ColumnInfo[];
+  limit: number;
+  offset: number;
+}
+
+export interface TableSchemaInfo {
+  table_name: string;
+  table_path: string;
+  columns: ColumnInfo[];
+}

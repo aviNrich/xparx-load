@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Connection, ConnectionFormData, TestConnectionResult } from '../types/connection';
-import { TableSchema, TableSchemaFormData } from '../types/schema';
+import { TableSchema, TableSchemaFormData, DeltaQueryRequest, DeltaQueryResponse, TableSchemaInfo } from '../types/schema';
 import { TableInfo, SqlPreviewRequest, SqlPreviewResponse, Mapping, MappingFormData, ColumnMappingConfiguration } from '../types/mapping';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -176,6 +176,28 @@ export const executionAPI = {
   // Execute a mapping (calls backend which proxies to execution service)
   run: async (mappingId: string): Promise<ExecutionResponse> => {
     const response = await api.post<ExecutionResponse>(`/mappings/${mappingId}/run`);
+    return response.data;
+  },
+};
+
+export const deltaTableAPI = {
+  // Query delta table with filters and pagination
+  query: async (request: DeltaQueryRequest): Promise<DeltaQueryResponse> => {
+    const response = await api.post<DeltaQueryResponse>('/delta-tables/query', request);
+    return response.data;
+  },
+
+  // Get delta table schema information
+  getSchema: async (tableName: string): Promise<TableSchemaInfo> => {
+    const response = await api.get<TableSchemaInfo>(`/delta-tables/${tableName}/schema`);
+    return response.data;
+  },
+
+  // Get delta table data with pagination (simplified GET method)
+  getData: async (tableName: string, limit: number = 100, offset: number = 0): Promise<DeltaQueryResponse> => {
+    const response = await api.get<DeltaQueryResponse>(`/delta-tables/${tableName}`, {
+      params: { limit, offset }
+    });
     return response.data;
   },
 };

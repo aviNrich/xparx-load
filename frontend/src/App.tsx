@@ -13,6 +13,7 @@ import { NewMappingPage } from './pages/NewMappingPage';
 import { ColumnMappingPage } from './pages/ColumnMappingPage';
 import { SchedulingPage } from './pages/SchedulingPage';
 import { SchemaPage } from './pages/SchemaPage';
+import SchemaPreviewPage from './pages/SchemaPreviewPage';
 
 function DashboardPage() {
   return (
@@ -134,6 +135,8 @@ function App() {
               <Route path="/mappings/:mappingId/columns" element={<ColumnMappingPage />} />
               <Route path="/mappings/:mappingId/schedule" element={<SchedulingPage />} />
               <Route path="/schema" element={<SchemaPage />} />
+              <Route path="/schema/preview" element={<SchemaPreviewPage />} />
+              <Route path="/schema/preview/:tableName" element={<SchemaPreviewPage />} />
             </Routes>
           </div>
         </main>
