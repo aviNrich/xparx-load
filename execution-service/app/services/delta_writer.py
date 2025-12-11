@@ -56,12 +56,20 @@ def map_field_type_to_spark(field_type: str):
     return type_mapping.get(field_type, StringType())
 
 
-def create_spark_schema(schema_fields: List[Dict[str, str]]) -> StructType:
+def create_spark_schema(schema_fields: List[Dict[str, str]], data: List[Dict[str, Any]]) -> StructType:
     """Create Spark StructType from schema fields"""
     fields = []
     for field in schema_fields:
         spark_type = map_field_type_to_spark(field["field_type"])
         fields.append(StructField(field["name"], spark_type, nullable=True))
+
+    # Add entity columns if present in data
+    if data and len(data) > 0:
+        sample_row = data[0]
+        if "entity_root_id" in sample_row:
+            fields.append(StructField("entity_root_id", StringType(), nullable=True))
+        if "entity_id" in sample_row:
+            fields.append(StructField("entity_id", StringType(), nullable=True))
 
     # Add metadata columns
     fields.append(StructField("mapping_id", StringType(), nullable=False))
@@ -134,7 +142,7 @@ def write_to_delta_lake(
             row["execution_time"] = execution_time
 
         # Create expected schema
-        expected_schema = create_spark_schema(schema_fields)
+        expected_schema = create_spark_schema(schema_fields, data)
 
         # Create Spark DataFrame from data
         spark_df = spark.createDataFrame(data, schema=expected_schema)

@@ -312,12 +312,10 @@ export function ColumnMappingPage() {
               {/* Target Schema Selection */}
               <div className="bg-white rounded-xl border border-neutral-200 p-6">
                 <h2 className="text-lg font-semibold text-neutral-900 mb-4">
-                  Select Target Schema
+                  Select Ontology
                 </h2>
                 <div className="max-w-md">
-                  <Label className="text-sm text-neutral-700">
-                    Target Schema <span className="text-red-500">*</span>
-                  </Label>
+                  
                   <Select value={selectedSchemaId} onValueChange={handleSchemaSelect}>
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select a target schema...">

@@ -162,23 +162,31 @@ class ExecutionService:
         try:
             column_mappings = config["column_mappings"]
             target_schema_fields = config["target_schema"]["fields"]
+            mapping = config["mapping"]
 
             # Initialize target DataFrame with expected columns
             target_columns = [field["name"] for field in target_schema_fields]
             result_df = pd.DataFrame(columns=target_columns)
 
             # Apply each column mapping
-            for mapping in column_mappings:
-                mapping_type = mapping["type"]
+            for mapping_config in column_mappings:
+                mapping_type = mapping_config["type"]
 
                 if mapping_type == "direct":
-                    self._apply_direct_mapping(source_df, result_df, mapping)
+                    self._apply_direct_mapping(source_df, result_df, mapping_config)
                 elif mapping_type == "split":
-                    self._apply_split_mapping(source_df, result_df, mapping)
+                    self._apply_split_mapping(source_df, result_df, mapping_config)
                 elif mapping_type == "join":
-                    self._apply_join_mapping(source_df, result_df, mapping)
+                    self._apply_join_mapping(source_df, result_df, mapping_config)
                 else:
                     raise TransformationError(f"Unknown mapping type: {mapping_type}")
+
+            # Add entity columns from source data if specified
+            if mapping.get("entity_root_id_column") and mapping["entity_root_id_column"] in source_df.columns:
+                result_df["entity_root_id"] = source_df[mapping["entity_root_id_column"]].values
+
+            if mapping.get("entity_id_column") and mapping["entity_id_column"] in source_df.columns:
+                result_df["entity_id"] = source_df[mapping["entity_id_column"]].values
 
             # Convert DataFrame to list of dictionaries
             return result_df.to_dict(orient="records")

@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { SqlPreviewTable } from '../components/mappings/SqlPreviewTable';
 import { Stepper, Step } from '../components/ui/stepper';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { EntityColumnSelectionDialog } from '../components/mappings/EntityColumnSelectionDialog';
 import { ArrowLeft, Loader2, AlertCircle, Play } from 'lucide-react';
 
 const mappingSchema = z.object({
@@ -43,7 +44,7 @@ const WIZARD_STEPS: Step[] = [
 export function NewMappingPage() {
   const navigate = useNavigate();
   const { mappingId } = useParams<{ mappingId: string }>();
-  const isReadonly = !!mappingId; // If we have a mappingId, this is readonly view
+  const isEditMode = !!mappingId; // If we have a mappingId, this is edit mode
 
   const { connections, loading: connectionsLoading } = useConnections();
   const [previewData, setPreviewData] = useState<SqlPreviewResponse | null>(null);
@@ -56,6 +57,7 @@ export function NewMappingPage() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingTableSelection, setPendingTableSelection] = useState<TableInfo | null>(null);
   const [sourceTable, setSourceTable] = useState('');
+  const [entityColumnDialogOpen, setEntityColumnDialogOpen] = useState(false);
 
   const {
     register,
@@ -126,10 +128,10 @@ export function NewMappingPage() {
     };
   });
 
-  // When table is selected, generate SQL query (only in create mode, not readonly)
+  // When table is selected, generate SQL query
   useEffect(() => {
-    // Skip this effect in readonly mode
-    if (isReadonly) return;
+    // Skip this effect in edit mode to avoid overwriting existing query
+    if (isEditMode) return;
 
     if (sourceTable && tables.length > 0) {
       const selectedTable = tables.find((t: TableInfo) => t.table_name === sourceTable);
@@ -144,7 +146,7 @@ export function NewMappingPage() {
         }
       }
     }
-  }, [sourceTable, tables, isReadonly]);
+  }, [sourceTable, tables, isEditMode]);
 
   const generateSqlQuery = (table: TableInfo) => {
     const schemaPrefix = table.table_schema ? `${table.table_schema}.` : '';
@@ -199,23 +201,60 @@ export function NewMappingPage() {
     }
   };
 
-  const onSubmit = async (data: MappingFormData) => {
-    if (!previewData) {
-      setPreviewError('Please run the query preview before saving');
+  const handleEntityColumnSelection = async (entityRootIdColumn: string, entityIdColumn: string) => {
+    if (isEditMode && mappingId) {
+      // Update existing mapping with all changes including entity columns
+      const formData = watch();
+      try {
+        await mappingAPI.update(mappingId, {
+          name: formData.name,
+          description: formData.description,
+          sql_query: formData.sql_query,
+          entity_root_id_column: entityRootIdColumn,
+          entity_id_column: entityIdColumn,
+        });
+        navigate(`/mappings/${mappingId}/columns`);
+      } catch (error) {
+        setPreviewError(error instanceof Error ? error.message : 'Failed to update mapping');
+      }
+    } else {
+      // Create new mapping with entity columns
+      const formData = watch();
+      if (!formData.name || !formData.source_connection_id || !formData.sql_query) {
+        setPreviewError('Please fill in all required fields');
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        const savedMapping = await mappingAPI.create({
+          ...formData,
+          entity_root_id_column: entityRootIdColumn,
+          entity_id_column: entityIdColumn,
+        });
+        console.log('Mapping saved:', savedMapping);
+        navigate(`/mappings/${savedMapping._id}/columns`);
+      } catch (error) {
+        setPreviewError(error instanceof Error ? error.message : 'Failed to save mapping');
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  const handleNextClick = () => {
+    if (!previewData || !previewData.columns || previewData.columns.length === 0) {
+      setPreviewError('Please run the query preview first');
       return;
     }
 
-    setIsSaving(true);
-    try {
-      const savedMapping = await mappingAPI.create(data);
-      console.log('Mapping saved:', savedMapping);
-      // Navigate to column mapping page with the mapping ID
-      navigate(`/mappings/${savedMapping._id}/columns`);
-    } catch (error) {
-      setPreviewError(error instanceof Error ? error.message : 'Failed to save mapping');
-    } finally {
-      setIsSaving(false);
-    }
+    // Open the entity column selection dialog
+    setEntityColumnDialogOpen(true);
+  };
+
+  const onSubmit = async (data: MappingFormData) => {
+    // This is now handled by handleNextClick and handleEntityColumnSelection
+    handleNextClick();
   };
 
   return (
@@ -236,17 +275,17 @@ export function NewMappingPage() {
               </Button>
               <div>
                 <h1 className="text-xl font-bold text-neutral-900">
-                  {isReadonly ? 'View Mapping' : 'New Mapping'}
+                  {isEditMode ? 'Edit Mapping' : 'New Mapping'}
                 </h1>
                 <p className="text-xs text-neutral-500">
-                  {isReadonly ? 'Review mapping configuration' : 'Configure your data mapping'}
+                  {isEditMode ? 'Update mapping configuration' : 'Configure your data mapping'}
                 </p>
               </div>
             </div>
 
             {/* Action Buttons in Header */}
             <div className="flex gap-2">
-              {isReadonly ? (
+              {isEditMode ? (
                 <>
                   <Button
                     type="button"
@@ -259,8 +298,38 @@ export function NewMappingPage() {
                   <Button
                     type="button"
                     size="sm"
+                    variant="outline"
+                    disabled={!previewData || isSaving}
+                    onClick={async () => {
+                      const formData = watch();
+                      setIsSaving(true);
+                      try {
+                        await mappingAPI.update(mappingId!, {
+                          name: formData.name,
+                          description: formData.description,
+                          sql_query: formData.sql_query,
+                        });
+                      } catch (error) {
+                        setPreviewError(error instanceof Error ? error.message : 'Failed to update mapping');
+                      } finally {
+                        setIsSaving(false);
+                      }
+                    }}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save'
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
                     className="bg-primary-500 hover:bg-primary-600"
-                    onClick={() => navigate(`/mappings/${mappingId}/columns`)}
+                    onClick={handleNextClick}
                   >
                     Next
                   </Button>
@@ -331,7 +400,6 @@ export function NewMappingPage() {
                   {...register('name')}
                   placeholder="e.g., Users Data Import"
                   className="mt-1"
-                  disabled={isReadonly}
                 />
                 {errors.name && (
                   <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>
@@ -349,7 +417,6 @@ export function NewMappingPage() {
                   placeholder="Describe what this mapping does..."
                   className="mt-1"
                   rows={2}
-                  disabled={isReadonly}
                 />
                 {errors.description && (
                   <p className="text-xs text-red-500 mt-1">{errors.description.message}</p>
@@ -371,7 +438,6 @@ export function NewMappingPage() {
                     setPreviewData(null);
                     setPreviewError(null);
                   }}
-                  disabled={isReadonly}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder={connectionsLoading ? "Loading..." : "Select connection"} />
@@ -404,7 +470,6 @@ export function NewMappingPage() {
                       searchPlaceholder="Search tables..."
                       emptyMessage="No tables found."
                       loading={tablesLoading}
-                      disabled={isReadonly}
                     />
                   </div>
                 </div>
@@ -430,7 +495,7 @@ export function NewMappingPage() {
                     <Label className="text-neutral-700 text-xs font-semibold">
                       SQL Query <span className="text-red-500">*</span>
                     </Label>
-                    {sqlQuery && !isReadonly && (
+                    {sqlQuery && (
                       <Button
                         type="button"
                         onClick={handlePreview}
@@ -466,7 +531,7 @@ export function NewMappingPage() {
                         fontSize: 13,
                         lineNumbers: 'on',
                         roundedSelection: false,
-                        readOnly: isReadonly,
+                        readOnly: false,
                         automaticLayout: true,
                         padding: { top: 8, bottom: 8 },
                       }}
@@ -527,6 +592,15 @@ export function NewMappingPage() {
         variant="warning"
         onConfirm={handleConfirmOverwrite}
         onCancel={handleCancelOverwrite}
+      />
+
+      {/* Entity Column Selection Dialog */}
+      <EntityColumnSelectionDialog
+        open={entityColumnDialogOpen}
+        onOpenChange={setEntityColumnDialogOpen}
+        columns={previewData?.columns || []}
+        onConfirm={handleEntityColumnSelection}
+        onCancel={() => setEntityColumnDialogOpen(false)}
       />
     </div>
   );

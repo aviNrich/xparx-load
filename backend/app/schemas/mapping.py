@@ -28,6 +28,8 @@ class MappingBase(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     source_connection_id: str
     sql_query: str
+    entity_root_id_column: Optional[str] = None  # Entity root ID column (e.g., "poi_id")
+    entity_id_column: Optional[str] = None  # Row ID column (e.g., "id")
 
 
 class MappingCreate(MappingBase):
@@ -39,6 +41,8 @@ class MappingUpdate(BaseModel):
     description: Optional[str] = None
     source_connection_id: Optional[str] = None
     sql_query: Optional[str] = None
+    entity_root_id_column: Optional[str] = None
+    entity_id_column: Optional[str] = None
 
 
 class MappingResponse(MappingBase):

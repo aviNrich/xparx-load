@@ -4,6 +4,8 @@ export interface Mapping {
   description?: string;
   source_connection_id: string;
   sql_query: string;
+  entity_root_id_column?: string;  // Entity root ID column (e.g., "poi_id")
+  entity_id_column?: string;  // Row ID column (e.g., "id")
   created_at: string;
   updated_at: string;
 }
@@ -13,6 +15,8 @@ export interface MappingFormData {
   description?: string;
   source_connection_id: string;
   sql_query: string;
+  entity_root_id_column?: string;
+  entity_id_column?: string;
 }
 
 export interface TableInfo {
