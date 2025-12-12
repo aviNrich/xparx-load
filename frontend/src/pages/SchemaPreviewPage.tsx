@@ -14,7 +14,7 @@ import {
 } from '../components/ui/table';
 import { deltaTableAPI, schemaAPI } from '../services/api';
 import { DeltaQueryResponse, ColumnInfo, TableSchema } from '../types/schema';
-import { ArrowLeft, Search, ChevronLeft, ChevronRight, X, Link2 } from 'lucide-react';
+import { ArrowLeft, Search, ChevronLeft, ChevronRight, X, Link2, Plus } from 'lucide-react';
 
 const SchemaPreviewPage = () => {
   const { tableName } = useParams<{ tableName: string }>();
@@ -28,6 +28,7 @@ const SchemaPreviewPage = () => {
   const [pageSize] = useState(50);
   const [schemas, setSchemas] = useState<TableSchema[]>([]);
   const [schemasLoading, setSchemasLoading] = useState(false);
+  const [selectedFilterColumns, setSelectedFilterColumns] = useState<string[]>([]);
 
   // Fetch data
   const fetchData = async (currentPage: number = 0, currentFilters: Record<string, string> = {}) => {
@@ -110,12 +111,31 @@ const SchemaPreviewPage = () => {
   // Clear all filters
   const handleClearFilters = () => {
     setFilters({});
+    setSelectedFilterColumns([]);
     setPage(0);
     fetchData(0, {});
   };
 
   // Clear single filter
   const handleClearFilter = (columnName: string) => {
+    const newFilters = { ...filters };
+    delete newFilters[columnName];
+    setFilters(newFilters);
+    setPage(0);
+    fetchData(0, newFilters);
+  };
+
+  // Add filter column
+  const handleAddFilterColumn = (columnName: string) => {
+    if (!selectedFilterColumns.includes(columnName)) {
+      setSelectedFilterColumns([...selectedFilterColumns, columnName]);
+    }
+  };
+
+  // Remove filter column
+  const handleRemoveFilterColumn = (columnName: string) => {
+    setSelectedFilterColumns(selectedFilterColumns.filter(col => col !== columnName));
+    // Also clear the filter value
     const newFilters = { ...filters };
     delete newFilters[columnName];
     setFilters(newFilters);
@@ -147,6 +167,12 @@ const SchemaPreviewPage = () => {
     const formattedValue = formatCellValue(value);
     if (formattedValue === '') return;
 
+    // Add column to selected filter columns if not already there
+    if (!selectedFilterColumns.includes(columnName)) {
+      setSelectedFilterColumns([...selectedFilterColumns, columnName]);
+    }
+
+    // Set the filter value
     const newFilters = {
       ...filters,
       [columnName]: formattedValue,
@@ -186,6 +212,14 @@ const SchemaPreviewPage = () => {
     label: schema.name,
     value: schema.name,
   }));
+
+  // Prepare filter column options (exclude already selected columns)
+  const availableFilterColumns = data?.columns
+    .filter(col => !selectedFilterColumns.includes(col.name))
+    .map(col => ({
+      label: `${col.name} (${col.type.replace('Type()', '').toLowerCase()})`,
+      value: col.name,
+    })) || [];
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-[1600px]">
@@ -258,64 +292,74 @@ const SchemaPreviewPage = () => {
           </div>
         </div>
 
-        {/* Filter Inputs Grid */}
-        {data && data.columns.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {data.columns.map((column: ColumnInfo) => (
-              <div key={column.name} className="flex flex-col">
-                <label className="text-sm font-medium text-neutral-700 mb-1 flex items-center justify-between">
-                  <span className="truncate">{column.name}</span>
-                  {filters[column.name] && (
-                    <button
-                      onClick={() => handleClearFilter(column.name)}
-                      className="text-neutral-400 hover:text-neutral-600 ml-1"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </label>
-                <Input
-                  placeholder={`Filter ${column.name}...`}
-                  value={filters[column.name] || ''}
-                  onChange={(e) => handleFilterChange(column.name, e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleApplyFilters();
-                    }
-                  }}
-                  className="text-sm"
-                />
-                <span className="text-xs text-neutral-500 mt-1">
-                  {column.type}
-                </span>
-              </div>
-            ))}
+        {/* Add Filter Combobox */}
+        {data && data.columns.length > 0 && availableFilterColumns.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
+              Add Filter
+            </label>
+            <Combobox
+              options={availableFilterColumns}
+              value=""
+              onValueChange={handleAddFilterColumn}
+              placeholder="Select a column to filter..."
+              searchPlaceholder="Search columns..."
+              emptyMessage="No columns available"
+            />
+          </div>
+        )}
+
+        {/* Selected Filter Inputs */}
+        {selectedFilterColumns.length > 0 && (
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-neutral-700">
+              Active Filter Fields
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {selectedFilterColumns.map((columnName) => {
+                const column = data?.columns.find(col => col.name === columnName);
+                if (!column) return null;
+
+                return (
+                  <div key={columnName} className="flex flex-col">
+                    <label className="text-sm font-medium text-neutral-700 mb-1 flex items-center justify-between">
+                      <span className="truncate">{column.name}</span>
+                      <button
+                        onClick={() => handleRemoveFilterColumn(column.name)}
+                        className="text-neutral-400 hover:text-red-600 ml-1"
+                        title="Remove filter"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </label>
+                    <Input
+                      placeholder={`Filter ${column.name}...`}
+                      value={filters[column.name] || ''}
+                      onChange={(e) => handleFilterChange(column.name, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleApplyFilters();
+                        }
+                      }}
+                      className="text-sm"
+                    />
+                    <span className="text-xs text-neutral-500 mt-1">
+                      {column.type.replace('Type()', '').toLowerCase()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state when no filters selected */}
+        {selectedFilterColumns.length === 0 && (
+          <div className="text-center py-8 text-neutral-500 text-sm">
+            Select columns from the dropdown above to add filters
           </div>
         )}
       </div>
-
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          <span className="text-sm font-medium text-neutral-700">Active filters:</span>
-          {Object.entries(filters)
-            .filter(([, value]) => value.trim() !== '')
-            .map(([key, value]) => (
-              <span
-                key={key}
-                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-700"
-              >
-                <strong>{key}:</strong> {value}
-                <button
-                  onClick={() => handleClearFilter(key)}
-                  className="ml-1 hover:text-primary-900"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-        </div>
-      )}
 
       {/* Data Table */}
       <div className="bg-white rounded-lg shadow-sm border border-neutral-200">

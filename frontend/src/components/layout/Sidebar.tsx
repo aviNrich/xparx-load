@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { LayoutDashboard, BarChart3, Lightbulb, Bell, Package, Map, ChevronDown, ChevronRight, Settings, MessageCircle, Database, Eye } from 'lucide-react';
+import { LayoutDashboard, Bell, Map, Settings, Database, Eye } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
@@ -8,7 +7,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeItem, onItemClick }: SidebarProps) {
-  const [productsExpanded, setProductsExpanded] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -23,7 +21,6 @@ export function Sidebar({ activeItem, onItemClick }: SidebarProps) {
       { id: 'schema-preview', label: 'Schema Preview', icon: Eye, path: '/schema/preview' }
     ]},
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'feedback', label: 'Feedback', icon: MessageCircle },
   ];
 
   // Combine all menu items and find the single active item
