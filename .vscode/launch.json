@@ -1,0 +1,107 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Backend (FastAPI)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload"
+      ],
+      "cwd": "${workspaceFolder}/backend",
+      // "env": {
+      //   "MONGODB_URL": "mongodb://localhost:27017",
+      //   "MONGODB_DB_NAME": "etl_engine",
+      //   "ENCRYPTION_KEY": "${env:ENCRYPTION_KEY}",
+      //   "EXECUTION_SERVICE_URL": "http://localhost:8001/api/v1",
+      //   "CORS_ORIGINS": "[\"http://localhost:5173\"]"
+      // },
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "python": "${workspaceFolder}/backend/venv/bin/python"
+    },
+    {
+      "name": "Python: Execution Service (FastAPI)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8001",
+        "--reload"
+      ],
+      "cwd": "${workspaceFolder}/execution-service",
+      // "env": {
+      //   "MONGODB_URL": "mongodb://localhost:27017",
+      //   "MONGODB_DB_NAME": "etl_engine",
+      //   "ENCRYPTION_KEY": "${env:ENCRYPTION_KEY}",
+      //   "DELTA_LAKE_BASE_PATH": "/tmp/delta-lake",
+      //   "SPARK_APP_NAME": "ETL-Executor",
+      //   "SPARK_MASTER": "local[*]",
+      //   "API_V1_PREFIX": "/api/v1",
+      //   "CORS_ORIGINS": "[\"http://localhost:5173\",\"http://localhost:3000\"]"
+      // },
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "python": "${workspaceFolder}/execution-service/venv/bin/python"
+    },
+    {
+      "name": "Frontend (Vite)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--host"
+      ],
+      "cwd": "${workspaceFolder}/frontend",
+      "env": {
+        "VITE_API_BASE_URL": "/api/v1"
+      },
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "Local:.*http://localhost:([0-9]+)",
+        "uriFormat": "http://localhost:%s",
+        "action": "debugWithChrome"
+      }
+    },
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack (All Services)",
+      "configurations": [
+        "Python: Backend (FastAPI)",
+        "Python: Execution Service (FastAPI)",
+        "Frontend (Vite)"
+      ],
+      "presentation": {
+        "hidden": false,
+        "group": "development",
+        "order": 1
+      }
+    },
+    {
+      "name": "Backend Only",
+      "configurations": [
+        "Python: Backend (FastAPI)",
+        "Python: Execution Service (FastAPI)"
+      ],
+      "presentation": {
+        "hidden": false,
+        "group": "development",
+        "order": 2
+      }
+    }
+  ]
+}
