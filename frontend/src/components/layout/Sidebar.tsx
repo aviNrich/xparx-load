@@ -20,7 +20,7 @@ export function Sidebar({ activeItem, onItemClick }: SidebarProps) {
     { id: 'schema', label: 'Schema', icon: Bell, badge: '8', path: '/schema', subItems: [
       { id: 'schema-preview', label: 'Schema Preview', icon: Eye, path: '/schema/preview' }
     ]},
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
   ];
 
   // Combine all menu items and find the single active item

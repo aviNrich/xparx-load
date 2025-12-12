@@ -14,6 +14,7 @@ import { ColumnMappingPage } from './pages/ColumnMappingPage';
 import { SchedulingPage } from './pages/SchedulingPage';
 import { SchemaPage } from './pages/SchemaPage';
 import SchemaPreviewPage from './pages/SchemaPreviewPage';
+import SettingsPage from './pages/SettingsPage';
 
 function DashboardPage() {
   return (
@@ -137,6 +138,7 @@ function App() {
               <Route path="/schema" element={<SchemaPage />} />
               <Route path="/schema/preview" element={<SchemaPreviewPage />} />
               <Route path="/schema/preview/:tableName" element={<SchemaPreviewPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </div>
         </main>

@@ -202,4 +202,50 @@ export const deltaTableAPI = {
   },
 };
 
+// System Settings Types
+export interface TargetDatabaseConfig {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+}
+
+export interface SystemSettings {
+  target_db: TargetDatabaseConfig | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  message: string;
+  details?: {
+    db_type?: string;
+    version?: string;
+    error_type?: string;
+  };
+}
+
+// System Settings API
+export const systemSettingsAPI = {
+  // Get system settings
+  get: async (): Promise<SystemSettings> => {
+    const response = await api.get<SystemSettings>('/system-settings/');
+    return response.data;
+  },
+
+  // Update target database configuration
+  updateTargetDb: async (config: TargetDatabaseConfig): Promise<SystemSettings> => {
+    const response = await api.put<SystemSettings>('/system-settings/target-db', config);
+    return response.data;
+  },
+
+  // Test target database connection
+  testTargetDb: async (config: TargetDatabaseConfig): Promise<TestConnectionResult> => {
+    const response = await api.post<TestConnectionResult>('/system-settings/target-db/test', config);
+    return response.data;
+  },
+};
+
 export default api;
