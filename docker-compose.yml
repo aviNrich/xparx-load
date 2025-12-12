@@ -1,7 +1,7 @@
 services:
-  mongodb:
+  xload-mongodb:
     image: mongo:7.0
-    container_name: etl-mongodb
+    container_name: xload-mongodb
     ports:
       - "27017:27017"
     volumes:
@@ -9,11 +9,12 @@ services:
     environment:
       MONGO_INITDB_DATABASE: etl_engine
     networks:
-      - etl-network
+      - xload-network
 
-  backend:
+
+  xload-backend:
     build: ./backend
-    container_name: etl-backend
+    container_name: xload-backend
     ports:
       - "8000:8000"
     volumes:
@@ -25,15 +26,15 @@ services:
       - EXECUTION_SERVICE_URL=http://execution-service:8001/api/v1
       - CORS_ORIGINS=["http://localhost:5173"]
     depends_on:
-      - mongodb
-      - execution-service
+      - xload-mongodb
+      - xload-execution-service
     networks:
-      - etl-network
+      - xload-network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  frontend:
+  xload-frontend:
     build: ./frontend
-    container_name: etl-frontend
+    container_name: xload-frontend
     ports:
       - "5173:5173"
     volumes:
@@ -42,14 +43,14 @@ services:
     environment:
       - VITE_API_BASE_URL=http://localhost:8000/api/v1
     depends_on:
-      - backend
+      - xload-backend
     networks:
-      - etl-network
+      - xload-network
     command: npm run dev -- --host
 
-  execution-service:
+  xload-execution-service:
     build: ./execution-service
-    container_name: etl-execution-service
+    container_name: xload-execution-service
     ports:
       - "8001:8001"
     volumes:
@@ -65,9 +66,9 @@ services:
       - API_V1_PREFIX=/api/v1
       - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
     depends_on:
-      - mongodb
+      - xload-mongodb
     networks:
-      - etl-network
+      - xload-network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
 volumes:
@@ -75,6 +76,6 @@ volumes:
   delta_lake_data:
 
 networks:
-  etl-network:
-    name: etl-network
+  xload-network:
+    name: xload-network
     driver: bridge

@@ -1,11 +1,11 @@
 
 services:
-  etl-engine-mysql:
+  xload-dev-mysql:
     image: mysql:8.0.33
-    container_name: etl-engine-mysql
+    container_name: xload-dev-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_ROOT_PASSWORD: rootpassword@
       MYSQL_DATABASE: backend
       MYSQL_ROOT_HOST: '%'
     ports:
@@ -13,16 +13,34 @@ services:
     volumes:
       - ./init:/docker-entrypoint-initdb.d
       - ./data/:/tmp/data/
-      - etl-engine-mysql-data:/var/lib/mysql
+      - xload-dev-mysql-data:/var/lib/mysql
 
     command: --default-authentication-plugin=mysql_native_password
     networks:
-      - etl-network
+      - xload-network
+
+  xload-dev-postgres:
+    image: postgis/postgis:17-3.5
+    container_name: xload-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sparx
+    ports:
+      - "5436:5432"
+    volumes:
+      - ./pg.sql:/docker-entrypoint-initdb.d/init.sql
+      - xload-dev-postgres-data:/var/lib/postgresql/data
+    networks:
+      - xload-network
 
 volumes:
-  etl-engine-mysql-data:
-    name: etl-engine-mysql-data
+  xload-dev-mysql-data:
+    name: xload-dev-mysql-data
+  xload-dev-postgres-data:
+    name: xload-dev-postgres-data
 
 networks:
-  etl-network:
+  xload-network:
     external: true

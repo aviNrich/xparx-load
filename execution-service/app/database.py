@@ -3,7 +3,7 @@ from pymongo.database import Database
 from .config import get_settings
 
 settings = get_settings()
-
+print(settings, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
 # Global MongoDB client
 client: MongoClient = None
 db: Database = None

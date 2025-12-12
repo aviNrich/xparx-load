@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     encryption_key: str  # Required environment variable
 
     class Config:
-        env_file = "../../.env"
+        env_file = ".env"
 
 
 _settings = None

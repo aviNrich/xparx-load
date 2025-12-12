@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     encryption_key: str
 
     class Config:
-        env_file = "../../.env"
+        env_file = ".env"
 
 
 @lru_cache()
