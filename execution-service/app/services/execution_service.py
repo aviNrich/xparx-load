@@ -12,10 +12,11 @@ from ..utils.exceptions import (
     SchemaNotFoundError,
     SourceConnectionError,
     SourceQueryError,
-    TransformationError
+    TransformationError,
 )
 from ..utils.encryption import decrypt_password
 from .delta_writer import write_to_delta_lake
+from .target_execution import execute_target_write
 
 
 class ExecutionService:
@@ -35,6 +36,8 @@ class ExecutionService:
         """
         execution_id = str(uuid.uuid4())
         execution_time = datetime.utcnow()
+        # get source connection id for logging
+        mapping = self.mappings_collection.find_one({"_id": ObjectId(mapping_id)})
 
         try:
             # Step 1: Retrieve mapping configuration
@@ -52,17 +55,37 @@ class ExecutionService:
                 schema_name=mapping_config["target_schema"]["name"],
                 schema_fields=mapping_config["target_schema"]["fields"],
                 mapping_id=mapping_id,
-                execution_time=execution_time.isoformat()
+                execution_time=execution_time.isoformat(),
+            )
+
+            # Step 5: Write to target database
+            target_result = execute_target_write(
+                {
+                    "execution_id": execution_id,
+                    "mapping_id": mapping_id,
+                    "status": "success",
+                    "rows_written": row_count,
+                    "execution_time": execution_time.isoformat(),
+                    "delta_table_path": delta_table_path,
+                    "schema_handler": mapping_config["target_schema"]["schema_handler"],
+                    "source_id": mapping["source_connection_id"],
+                }
             )
 
             return {
                 "execution_id": execution_id,
                 "mapping_id": mapping_id,
+                "source_id": mapping["source_connection_id"],
                 "status": "success",
                 "rows_written": row_count,
                 "execution_time": execution_time,
                 "delta_table_path": delta_table_path,
-                "error_message": None
+                "target_write_status": target_result["status"],
+                "rows_written_to_target": target_result.get(
+                    "rows_written_to_target", 0
+                ),
+                "target_error_message": target_result.get("error_message"),
+                "error_message": None,
             }
 
         except Exception as e:
@@ -73,7 +96,7 @@ class ExecutionService:
                 "rows_written": 0,
                 "execution_time": execution_time,
                 "delta_table_path": None,
-                "error_message": str(e)
+                "error_message": str(e),
             }
 
     def _get_mapping_config(self, mapping_id: str) -> Dict[str, Any]:
@@ -114,7 +137,7 @@ class ExecutionService:
             "mapping": mapping,
             "connection": connection,
             "column_mappings": column_mapping["column_mappings"],
-            "target_schema": target_schema
+            "target_schema": target_schema,
         }
 
     def _extract_source_data(self, config: Dict[str, Any]) -> pd.DataFrame:
@@ -136,9 +159,7 @@ class ExecutionService:
                     f"mysql+pymysql://{username}:{password}@{host}:{port}/{database}"
                 )
             elif db_type == "postgresql":
-                connection_string = (
-                    f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database}"
-                )
+                connection_string = f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database}"
             else:
                 raise SourceConnectionError(f"Unsupported database type: {db_type}")
 
@@ -154,9 +175,7 @@ class ExecutionService:
             raise SourceQueryError(f"Failed to extract source data: {str(e)}")
 
     def _transform_data(
-        self,
-        source_df: pd.DataFrame,
-        config: Dict[str, Any]
+        self, source_df: pd.DataFrame, config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Apply transformations to source data"""
         try:
@@ -182,10 +201,18 @@ class ExecutionService:
                     raise TransformationError(f"Unknown mapping type: {mapping_type}")
 
             # Add entity columns from source data if specified
-            if mapping.get("entity_root_id_column") and mapping["entity_root_id_column"] in source_df.columns:
-                result_df["entity_root_id"] = source_df[mapping["entity_root_id_column"]].values
+            if (
+                mapping.get("entity_root_id_column")
+                and mapping["entity_root_id_column"] in source_df.columns
+            ):
+                result_df["entity_root_id"] = source_df[
+                    mapping["entity_root_id_column"]
+                ].values
 
-            if mapping.get("entity_id_column") and mapping["entity_id_column"] in source_df.columns:
+            if (
+                mapping.get("entity_id_column")
+                and mapping["entity_id_column"] in source_df.columns
+            ):
                 result_df["entity_id"] = source_df[mapping["entity_id_column"]].values
 
             # Convert DataFrame to list of dictionaries
@@ -195,27 +222,19 @@ class ExecutionService:
             raise TransformationError(f"Data transformation failed: {str(e)}")
 
     def _apply_direct_mapping(
-        self,
-        source_df: pd.DataFrame,
-        target_df: pd.DataFrame,
-        mapping: Dict[str, Any]
+        self, source_df: pd.DataFrame, target_df: pd.DataFrame, mapping: Dict[str, Any]
     ) -> None:
         """Apply direct column mapping (1:1)"""
         source_column = mapping["source_column"]
         target_field = mapping["target_field"]
 
         if source_column not in source_df.columns:
-            raise TransformationError(
-                f"Source column not found: {source_column}"
-            )
+            raise TransformationError(f"Source column not found: {source_column}")
 
         target_df[target_field] = source_df[source_column].values
 
     def _apply_split_mapping(
-        self,
-        source_df: pd.DataFrame,
-        target_df: pd.DataFrame,
-        mapping: Dict[str, Any]
+        self, source_df: pd.DataFrame, target_df: pd.DataFrame, mapping: Dict[str, Any]
     ) -> None:
         """Apply split column mapping (1:N)"""
         source_column = mapping["source_column"]
@@ -223,9 +242,7 @@ class ExecutionService:
         target_fields = mapping["target_fields"]
 
         if source_column not in source_df.columns:
-            raise TransformationError(
-                f"Source column not found: {source_column}"
-            )
+            raise TransformationError(f"Source column not found: {source_column}")
 
         # Split the column
         split_data = source_df[source_column].str.split(delimiter, expand=True)
@@ -238,10 +255,7 @@ class ExecutionService:
                 target_df[target_field] = None
 
     def _apply_join_mapping(
-        self,
-        source_df: pd.DataFrame,
-        target_df: pd.DataFrame,
-        mapping: Dict[str, Any]
+        self, source_df: pd.DataFrame, target_df: pd.DataFrame, mapping: Dict[str, Any]
     ) -> None:
         """Apply join column mapping (N:1)"""
         source_columns = mapping["source_columns"]
@@ -251,11 +265,11 @@ class ExecutionService:
         # Validate source columns exist
         for col in source_columns:
             if col not in source_df.columns:
-                raise TransformationError(
-                    f"Source column not found: {col}"
-                )
+                raise TransformationError(f"Source column not found: {col}")
 
         # Join columns with separator
-        target_df[target_field] = source_df[source_columns].apply(
-            lambda row: separator.join(row.astype(str)), axis=1
-        ).values
+        target_df[target_field] = (
+            source_df[source_columns]
+            .apply(lambda row: separator.join(row.astype(str)), axis=1)
+            .values
+        )

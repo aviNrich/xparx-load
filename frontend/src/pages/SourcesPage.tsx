@@ -1,61 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ConnectionList } from '../components/connections/ConnectionList';
-import { ConnectionForm } from '../components/connections/ConnectionForm';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { Button } from '../components/ui/button';
 import { useConnections } from '../hooks/useConnections';
-import { Connection, ConnectionFormData } from '../types/connection';
+import { Connection } from '../types/connection';
 import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
-  
+
 export function SourcesPage() {
-  const location = useLocation();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
+  const navigate = useNavigate();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState<Connection | null>(null);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Check if we should open the dialog from navigation state
-  useEffect(() => {
-    if (location.state?.openDialog) {
-      setIsFormOpen(true);
-      // Clear the state after opening
-      window.history.replaceState({}, document.title);
-    }
-  }, [location]);
-
   const {
     connections,
     loading,
     error,
-    createConnection,
-    updateConnection,
     deleteConnection,
   } = useConnections();
 
-  const handleCreateOrUpdate = async (data: ConnectionFormData) => {
-    try {
-      if (editingConnection) {
-        await updateConnection(editingConnection._id, data);
-      } else {
-        await createConnection(data);
-      }
-      setIsFormOpen(false);
-      setEditingConnection(null);
-    } catch (err) {
-      console.error('Failed to save connection:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save connection');
-      setErrorDialogOpen(true);
-    }
-  };
-
   const handleEdit = (connection: Connection) => {
-    setEditingConnection(connection);
-    setIsFormOpen(true);
+    navigate(`/sources/${connection._id}`);
   };
 
   const handleDelete = (connection: Connection) => {
@@ -77,8 +45,7 @@ export function SourcesPage() {
   };
 
   const handleNewConnection = () => {
-    setEditingConnection(null);
-    setIsFormOpen(true);
+    navigate('/sources/new');
   };
 
   return (
@@ -141,33 +108,6 @@ export function SourcesPage() {
           onDelete={handleDelete}
         />
       )}
-
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">
-              {editingConnection ? 'Edit Connection' : 'Create New Connection'}
-            </DialogTitle>
-          </DialogHeader>
-          <ConnectionForm
-            initialData={editingConnection ? {
-              name: editingConnection.name,
-              db_type: editingConnection.db_type,
-              host: editingConnection.host,
-              port: editingConnection.port,
-              database: editingConnection.database,
-              username: editingConnection.username,
-              password: editingConnection.password,
-            } : undefined}
-            onSubmit={handleCreateOrUpdate}
-            onCancel={() => {
-              setIsFormOpen(false);
-              setEditingConnection(null);
-            }}
-            isEdit={!!editingConnection}
-          />
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

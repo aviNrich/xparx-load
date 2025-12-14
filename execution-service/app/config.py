@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     cors_origins: List[str] = ["http://localhost:5173", "http://localhost:3000"]
 
+    # Backend API Configuration
+    backend_api_url: str = "http://localhost:8000"
+
     # Security
     encryption_key: str  # Required environment variable
 

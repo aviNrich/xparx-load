@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, List, Any, Union, Literal, Annotated
 from datetime import datetime
 from bson import ObjectId
+import re
 
 
 class TableInfoResponse(BaseModel):

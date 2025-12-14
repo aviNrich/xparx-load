@@ -33,6 +33,7 @@ class SchemaField(BaseModel):
 
 class TableSchemaBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
+    schema_handler: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
     fields: List[SchemaField] = Field(..., min_length=1)
 
@@ -43,6 +44,19 @@ class TableSchemaBase(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Table name cannot be empty")
+        return v
+
+    @field_validator('schema_handler')
+    @classmethod
+    def validate_schema_handler(cls, v):
+        import re
+        # Remove leading/trailing whitespace
+        v = v.strip()
+        if not v:
+            raise ValueError("Schema handler cannot be empty")
+        # Validate snake_case format
+        if not re.match(r'^[a-z_][a-z0-9_]*$', v):
+            raise ValueError("Schema handler must be in snake_case (lowercase letters, numbers, and underscores only)")
         return v
 
     @field_validator('fields')
@@ -64,8 +78,23 @@ class TableSchemaCreate(TableSchemaBase):
 
 class TableSchemaUpdate(BaseModel):
     name: Optional[str] = None
+    schema_handler: Optional[str] = None
     description: Optional[str] = None
     fields: Optional[List[SchemaField]] = None
+
+    @field_validator('schema_handler')
+    @classmethod
+    def validate_schema_handler(cls, v):
+        if v is not None:
+            import re
+            # Remove leading/trailing whitespace
+            v = v.strip()
+            if not v:
+                raise ValueError("Schema handler cannot be empty")
+            # Validate snake_case format
+            if not re.match(r'^[a-z_][a-z0-9_]*$', v):
+                raise ValueError("Schema handler must be in snake_case (lowercase letters, numbers, and underscores only)")
+        return v
 
     @field_validator('fields')
     @classmethod

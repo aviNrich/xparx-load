@@ -26,11 +26,16 @@ def get_spark_session() -> SparkSession:
     """Get or create singleton Spark session with Delta Lake configuration"""
     global _spark
     if _spark is None:
-        # Configure Spark with Delta Lake packages
+        # Configure Spark with Delta Lake and PostgreSQL JDBC packages
         _spark = (
             SparkSession.builder.appName(settings.spark_app_name)
             .master(settings.spark_master)
-            .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
+            .config("spark.ui.enabled", "false")
+            .config("spark.sql.catalogImplementation", "in-memory")
+            .config(
+                "spark.jars.packages",
+                "io.delta:delta-spark_2.12:3.0.0,org.postgresql:postgresql:42.7.1",
+            )
             .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
             .config(
                 "spark.sql.catalog.spark_catalog",
@@ -40,7 +45,7 @@ def get_spark_session() -> SparkSession:
             .getOrCreate()
         )
 
-        _spark.sparkContext.setLogLevel("WARN")
+        _spark.sparkContext.setLogLevel("ERROR")
 
     return _spark
 
@@ -56,7 +61,9 @@ def map_field_type_to_spark(field_type: str):
     return type_mapping.get(field_type, StringType())
 
 
-def create_spark_schema(schema_fields: List[Dict[str, str]], data: List[Dict[str, Any]]) -> StructType:
+def create_spark_schema(
+    schema_fields: List[Dict[str, str]], data: List[Dict[str, Any]]
+) -> StructType:
     """Create Spark StructType from schema fields"""
     fields = []
     for field in schema_fields:
@@ -140,6 +147,7 @@ def write_to_delta_lake(
         for row in data:
             row["mapping_id"] = mapping_id
             row["execution_time"] = execution_time
+            row["source_id"] = row.get("entity_id", None)
 
         # Create expected schema
         expected_schema = create_spark_schema(schema_fields, data)

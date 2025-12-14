@@ -15,7 +15,9 @@ class SchemaService:
         # Check if schema with same name already exists
         existing = self.collection.find_one({"name": schema.name})
         if existing:
-            raise DuplicateConnectionError(f"Schema with name '{schema.name}' already exists")
+            raise DuplicateConnectionError(
+                f"Schema with name '{schema.name}' already exists"
+            )
 
         # Prepare document
         now = datetime.utcnow()
@@ -50,7 +52,9 @@ class SchemaService:
         schema["_id"] = str(schema["_id"])
         return TableSchemaResponse(**schema)
 
-    def update_schema(self, schema_id: str, update: TableSchemaUpdate) -> TableSchemaResponse:
+    def update_schema(
+        self, schema_id: str, update: TableSchemaUpdate
+    ) -> TableSchemaResponse:
         """Update an existing schema"""
         if not ObjectId.is_valid(schema_id):
             raise ConnectionNotFoundError(f"Invalid schema ID: {schema_id}")
@@ -62,22 +66,26 @@ class SchemaService:
 
         # Check for duplicate name if name is being updated
         if update.name and update.name != existing.get("name"):
-            duplicate = self.collection.find_one({
-                "name": update.name,
-                "_id": {"$ne": ObjectId(schema_id)}
-            })
+            duplicate = self.collection.find_one(
+                {"name": update.name, "_id": {"$ne": ObjectId(schema_id)}}
+            )
             if duplicate:
-                raise DuplicateConnectionError(f"Schema with name '{update.name}' already exists")
+                raise DuplicateConnectionError(
+                    f"Schema with name '{update.name}' already exists"
+                )
 
         # Prepare update data
-        update_data = {k: v for k, v in update.model_dump(exclude_unset=True).items() if v is not None}
+        update_data = {
+            k: v
+            for k, v in update.model_dump(exclude_unset=True).items()
+            if v is not None
+        }
         if update_data:
             update_data["updated_at"] = datetime.utcnow()
 
             # Update in database
             self.collection.update_one(
-                {"_id": ObjectId(schema_id)},
-                {"$set": update_data}
+                {"_id": ObjectId(schema_id)}, {"$set": update_data}
             )
 
         # Return updated schema

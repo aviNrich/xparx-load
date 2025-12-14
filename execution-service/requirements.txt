@@ -11,3 +11,4 @@ python-dotenv==1.0.0
 pyspark==3.5.0
 delta-spark==3.0.0
 pandas==2.1.4
+requests==2.31.0

@@ -1,17 +1,15 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SchemaList } from '../components/schemas/SchemaList';
-import { SchemaForm } from '../components/schemas/SchemaForm';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { Button } from '../components/ui/button';
 import { useSchemas } from '../hooks/useSchemas';
-import { TableSchema, TableSchemaFormData } from '../types/schema';
+import { TableSchema } from '../types/schema';
 import { Plus, Loader2, AlertCircle, Table2, Layers, Clock } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
 export function SchemaPage() {
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingSchema, setEditingSchema] = useState<TableSchema | null>(null);
+  const navigate = useNavigate();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [schemaToDelete, setSchemaToDelete] = useState<TableSchema | null>(null);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
@@ -21,30 +19,11 @@ export function SchemaPage() {
     schemas,
     loading,
     error,
-    createSchema,
-    updateSchema,
     deleteSchema,
   } = useSchemas();
 
-  const handleCreateOrUpdate = async (data: TableSchemaFormData) => {
-    try {
-      if (editingSchema) {
-        await updateSchema(editingSchema._id, data);
-      } else {
-        await createSchema(data);
-      }
-      setIsFormOpen(false);
-      setEditingSchema(null);
-    } catch (err) {
-      console.error('Failed to save schema:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save schema');
-      setErrorDialogOpen(true);
-    }
-  };
-
   const handleEdit = (schema: TableSchema) => {
-    setEditingSchema(schema);
-    setIsFormOpen(true);
+    navigate(`/schema/${schema._id}`);
   };
 
   const handleDelete = (schema: TableSchema) => {
@@ -66,8 +45,7 @@ export function SchemaPage() {
   };
 
   const handleNewSchema = () => {
-    setEditingSchema(null);
-    setIsFormOpen(true);
+    navigate('/schema/new');
   };
 
   // Calculate stats
@@ -157,29 +135,6 @@ export function SchemaPage() {
           onDelete={handleDelete}
         />
       )}
-
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">
-              {editingSchema ? 'Edit Schema' : 'Create New Schema'}
-            </DialogTitle>
-          </DialogHeader>
-          <SchemaForm
-            initialData={editingSchema ? {
-              name: editingSchema.name,
-              description: editingSchema.description,
-              fields: editingSchema.fields,
-            } : undefined}
-            onSubmit={handleCreateOrUpdate}
-            onCancel={() => {
-              setIsFormOpen(false);
-              setEditingSchema(null);
-            }}
-            isEdit={!!editingSchema}
-          />
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

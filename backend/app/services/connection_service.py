@@ -31,7 +31,9 @@ class ConnectionService:
             return ConnectionResponse(**connection_dict)
         except Exception as e:
             if "duplicate key" in str(e).lower():
-                raise DuplicateConnectionError(f"Connection with name '{connection.name}' already exists")
+                raise DuplicateConnectionError(
+                    f"Connection with name '{connection.name}' already exists"
+                )
             raise
 
     def get_connection(self, connection_id: str) -> ConnectionResponse:
@@ -51,9 +53,12 @@ class ConnectionService:
         connections = list(self.collection.find().sort("updated_at", -1))
         for conn in connections:
             conn["_id"] = str(conn["_id"])
+            conn["key"] = "test" + conn["_id"]
         return [ConnectionResponse(**conn) for conn in connections]
 
-    def update_connection(self, connection_id: str, update: ConnectionUpdate) -> ConnectionResponse:
+    def update_connection(
+        self, connection_id: str, update: ConnectionUpdate
+    ) -> ConnectionResponse:
         """Update an existing connection"""
         if not ObjectId.is_valid(connection_id):
             raise ConnectionNotFoundError(f"Invalid connection ID: {connection_id}")
@@ -71,7 +76,7 @@ class ConnectionService:
         result = self.collection.find_one_and_update(
             {"_id": ObjectId(connection_id)},
             {"$set": update_dict},
-            return_document=True
+            return_document=True,
         )
 
         if not result:
@@ -95,10 +100,5 @@ class ConnectionService:
         """Update last test status and timestamp"""
         self.collection.update_one(
             {"_id": ObjectId(connection_id)},
-            {
-                "$set": {
-                    "last_tested_at": datetime.utcnow(),
-                    "last_test_status": status
-                }
-            }
+            {"$set": {"last_tested_at": datetime.utcnow(), "last_test_status": status}},
         )

@@ -51,3 +51,14 @@ async def test_target_db(
     """Test target database connection"""
     result = service.test_target_db_connection(config)
     return result
+
+
+@router.get("/target-db-decrypted")
+async def get_target_db_decrypted(
+    service: SystemSettingsService = Depends(get_settings_service)
+):
+    """Get target database configuration with decrypted password (internal use only)"""
+    target_db = service.get_decrypted_target_db()
+    if not target_db:
+        raise HTTPException(status_code=404, detail="Target database not configured")
+    return {"target_db": target_db}

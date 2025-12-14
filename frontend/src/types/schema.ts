@@ -9,6 +9,7 @@ export interface SchemaField {
 export interface TableSchema {
   _id: string;
   name: string;
+  schema_handler: string;
   description?: string;
   fields: SchemaField[];
   created_at: string;
@@ -17,6 +18,7 @@ export interface TableSchema {
 
 export interface TableSchemaFormData {
   name: string;
+  schema_handler: string;
   description?: string;
   fields: SchemaField[];
 }
