@@ -51,7 +51,6 @@ class TargetExecutionService:
 
             # Step 3: Connect to target database
             logger.info(f"Connecting to target database: {target_db_config['host']}")
-            engine = self._create_target_db_connection(target_db_config)
 
             # Step 4: Write DataFrame to target database using Spark
             logger.info("Writing data to target database")
@@ -60,7 +59,6 @@ class TargetExecutionService:
                 df,
                 context["schema_handler"],
                 context["source_id"],
-                table_name,
                 target_db_config,
             )
 
@@ -128,19 +126,14 @@ class TargetExecutionService:
         df: DataFrame,
         schema_handler: str,
         source_id: str,
-        table_name: str,
         target_db_config: Dict[str, Any],
     ) -> int:
         """Write Spark DataFrame to target PostgreSQL database using Spark JDBC"""
-        # Build JDBC URL for Spark
         jdbc_url = (
             f"jdbc:postgresql://{target_db_config['host']}:{target_db_config['port']}"
             f"/{target_db_config['database']}"
         )
 
-        # Configure DataFrameWriter with JDBC options
-
-        # Get the appropriate handler and apply transformations
         context = {"source_id": source_id}
         try:
             handler = TargetHandlers.get_handler(schema_handler)
@@ -157,6 +150,7 @@ class TargetExecutionService:
                 .mode("append")
             )
             writer.save()
+
         except ValueError as e:
             logger.warning(
                 f"Handler error: {str(e)}. Writing without handler transformations."
