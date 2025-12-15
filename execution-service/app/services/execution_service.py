@@ -5,6 +5,8 @@ from typing import Dict, List, Any
 import pandas as pd
 from datetime import datetime
 import uuid
+from pyspark.sql import DataFrame, functions as F
+from pyspark.sql.column import Column
 from ..utils.exceptions import (
     MappingNotFoundError,
     ConnectionNotFoundError,
@@ -15,7 +17,7 @@ from ..utils.exceptions import (
     TransformationError,
 )
 from ..utils.encryption import decrypt_password
-from .delta_writer import write_to_delta_lake
+from .delta_writer import write_to_delta_lake, get_spark_session
 from .target_execution import execute_target_write
 
 
@@ -43,15 +45,15 @@ class ExecutionService:
             # Step 1: Retrieve mapping configuration
             mapping_config = self._get_mapping_config(mapping_id)
 
-            # Step 2: Extract source data
-            source_data = self._extract_source_data(mapping_config)
+            # Step 2: Extract source data using Spark JDBC
+            source_df = self._extract_source_data(mapping_config)
 
-            # Step 3: Transform data
-            transformed_data = self._transform_data(source_data, mapping_config)
+            # Step 3: Transform data using PySpark operations
+            transformed_df = self._transform_data(source_df, mapping_config)
 
             # Step 4: Write to Delta Lake
             delta_table_path, row_count = write_to_delta_lake(
-                data=transformed_data,
+                df=transformed_df,
                 schema_name=mapping_config["target_schema"]["name"],
                 schema_fields=mapping_config["target_schema"]["fields"],
                 mapping_id=mapping_id,
@@ -140,13 +142,13 @@ class ExecutionService:
             "target_schema": target_schema,
         }
 
-    def _extract_source_data(self, config: Dict[str, Any]) -> pd.DataFrame:
-        """Extract data from source database"""
+    def _extract_source_data(self, config: Dict[str, Any]) -> DataFrame:
+        """Extract data from source database using Spark JDBC for distributed loading"""
         connection = config["connection"]
         mapping = config["mapping"]
 
         try:
-            # Build connection string
+            # Build JDBC connection properties
             db_type = connection["db_type"]
             username = connection["username"]
             password = decrypt_password(connection["password"])
@@ -155,19 +157,28 @@ class ExecutionService:
             database = connection["database"]
 
             if db_type == "mysql":
-                connection_string = (
-                    f"mysql+pymysql://{username}:{password}@{host}:{port}/{database}"
-                )
+                jdbc_url = f"jdbc:mysql://{host}:{port}/{database}"
+                driver = "com.mysql.cj.jdbc.Driver"
             elif db_type == "postgresql":
-                connection_string = f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database}"
+                jdbc_url = f"jdbc:postgresql://{host}:{port}/{database}"
+                driver = "org.postgresql.Driver"
             else:
                 raise SourceConnectionError(f"Unsupported database type: {db_type}")
 
-            # Execute query
-            engine = create_engine(connection_string)
-            with engine.connect() as conn:
-                result = conn.execute(text(mapping["sql_query"]))
-                df = pd.DataFrame(result.fetchall(), columns=result.keys())
+            # Get Spark session
+            spark = get_spark_session()
+
+            # Read using Spark JDBC with query pushdown
+            df = spark.read \
+                .format("jdbc") \
+                .option("url", jdbc_url) \
+                .option("query", mapping["sql_query"]) \
+                .option("user", username) \
+                .option("password", password) \
+                .option("driver", driver) \
+                .option("fetchsize", "10000") \
+                .option("numPartitions", "4") \
+                .load()
 
             return df
 
@@ -175,68 +186,72 @@ class ExecutionService:
             raise SourceQueryError(f"Failed to extract source data: {str(e)}")
 
     def _transform_data(
-        self, source_df: pd.DataFrame, config: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """Apply transformations to source data"""
+        self, source_df: DataFrame, config: Dict[str, Any]
+    ) -> DataFrame:
+        """Apply transformations to source data using PySpark operations"""
         try:
             column_mappings = config["column_mappings"]
-            target_schema_fields = config["target_schema"]["fields"]
             mapping = config["mapping"]
 
-            # Initialize target DataFrame with expected columns
-            target_columns = [field["name"] for field in target_schema_fields]
-            result_df = pd.DataFrame(columns=target_columns)
+            # Collect all column expressions to select
+            columns_to_select = []
 
             # Apply each column mapping
             for mapping_config in column_mappings:
                 mapping_type = mapping_config["type"]
 
                 if mapping_type == "direct":
-                    self._apply_direct_mapping(source_df, result_df, mapping_config)
+                    col_expr = self._apply_direct_mapping(source_df, mapping_config)
+                    columns_to_select.append(col_expr)
+
                 elif mapping_type == "split":
-                    self._apply_split_mapping(source_df, result_df, mapping_config)
+                    col_exprs = self._apply_split_mapping(source_df, mapping_config)
+                    columns_to_select.extend(col_exprs)
+
                 elif mapping_type == "join":
-                    self._apply_join_mapping(source_df, result_df, mapping_config)
+                    col_expr = self._apply_join_mapping(source_df, mapping_config)
+                    columns_to_select.append(col_expr)
+
                 else:
                     raise TransformationError(f"Unknown mapping type: {mapping_type}")
 
-            # Add entity columns from source data if specified
-            if (
-                mapping.get("entity_root_id_column")
-                and mapping["entity_root_id_column"] in source_df.columns
-            ):
-                result_df["entity_root_id"] = source_df[
-                    mapping["entity_root_id_column"]
-                ].values
+            # Add entity columns if specified
+            if mapping.get("entity_root_id_column") and \
+               mapping["entity_root_id_column"] in source_df.columns:
+                columns_to_select.append(
+                    F.col(mapping["entity_root_id_column"]).alias("entity_root_id")
+                )
 
-            if (
-                mapping.get("entity_id_column")
-                and mapping["entity_id_column"] in source_df.columns
-            ):
-                result_df["entity_id"] = source_df[mapping["entity_id_column"]].values
+            if mapping.get("entity_id_column") and \
+               mapping["entity_id_column"] in source_df.columns:
+                columns_to_select.append(
+                    F.col(mapping["entity_id_column"]).alias("entity_id")
+                )
 
-            # Convert DataFrame to list of dictionaries
-            return result_df.to_dict(orient="records")
+            # Apply all transformations in a single select statement
+            result_df = source_df.select(*columns_to_select)
+
+            return result_df
 
         except Exception as e:
             raise TransformationError(f"Data transformation failed: {str(e)}")
 
     def _apply_direct_mapping(
-        self, source_df: pd.DataFrame, target_df: pd.DataFrame, mapping: Dict[str, Any]
-    ) -> None:
-        """Apply direct column mapping (1:1)"""
+        self, source_df: DataFrame, mapping: Dict[str, Any]
+    ) -> Column:
+        """Return a Spark Column for direct mapping"""
         source_column = mapping["source_column"]
         target_field = mapping["target_field"]
 
         if source_column not in source_df.columns:
             raise TransformationError(f"Source column not found: {source_column}")
 
-        target_df[target_field] = source_df[source_column].values
+        return F.col(source_column).alias(target_field)
 
     def _apply_split_mapping(
-        self, source_df: pd.DataFrame, target_df: pd.DataFrame, mapping: Dict[str, Any]
-    ) -> None:
-        """Apply split column mapping (1:N)"""
+        self, source_df: DataFrame, mapping: Dict[str, Any]
+    ) -> List[Column]:
+        """Return list of Spark Columns for split mapping"""
         source_column = mapping["source_column"]
         delimiter = mapping["delimiter"]
         target_fields = mapping["target_fields"]
@@ -244,20 +259,22 @@ class ExecutionService:
         if source_column not in source_df.columns:
             raise TransformationError(f"Source column not found: {source_column}")
 
-        # Split the column
-        split_data = source_df[source_column].str.split(delimiter, expand=True)
+        # Use Spark split() function
+        split_col = F.split(F.col(source_column), delimiter)
 
-        # Assign to target fields
+        # Create column expressions for each target field
+        columns = []
         for idx, target_field in enumerate(target_fields):
-            if idx < len(split_data.columns):
-                target_df[target_field] = split_data[idx].values
-            else:
-                target_df[target_field] = None
+            # getItem extracts array element (null if out of bounds)
+            col_expr = split_col.getItem(idx).alias(target_field)
+            columns.append(col_expr)
+
+        return columns
 
     def _apply_join_mapping(
-        self, source_df: pd.DataFrame, target_df: pd.DataFrame, mapping: Dict[str, Any]
-    ) -> None:
-        """Apply join column mapping (N:1)"""
+        self, source_df: DataFrame, mapping: Dict[str, Any]
+    ) -> Column:
+        """Return Spark Column for join mapping using concat_ws"""
         source_columns = mapping["source_columns"]
         separator = mapping["separator"]
         target_field = mapping["target_field"]
@@ -267,9 +284,8 @@ class ExecutionService:
             if col not in source_df.columns:
                 raise TransformationError(f"Source column not found: {col}")
 
-        # Join columns with separator
-        target_df[target_field] = (
-            source_df[source_columns]
-            .apply(lambda row: separator.join(row.astype(str)), axis=1)
-            .values
-        )
+        # Use concat_ws (concat with separator) - handles nulls gracefully
+        # Cast all columns to string first
+        string_cols = [F.col(col).cast("string") for col in source_columns]
+
+        return F.concat_ws(separator, *string_cols).alias(target_field)
