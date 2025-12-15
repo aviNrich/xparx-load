@@ -13,6 +13,7 @@ import os
 from ..config import get_settings
 from ..utils.exceptions import SchemaValidationError, DeltaWriteError
 import sys
+import math
 
 settings = get_settings()
 
@@ -85,6 +86,63 @@ def create_spark_schema(
     return StructType(fields)
 
 
+def clean_data_for_schema(
+    data: List[Dict[str, Any]], schema_fields: List[Dict[str, str]]
+) -> List[Dict[str, Any]]:
+    """
+    Clean data to match schema types, handling special cases like NaN values.
+
+    Args:
+        data: List of dictionaries containing raw data
+        schema_fields: Target schema field definitions
+
+    Returns:
+        Cleaned data ready for Spark DataFrame creation
+    """
+    # Create a mapping of field names to their types
+    field_types = {field["name"]: field["field_type"] for field in schema_fields}
+
+    cleaned_data = []
+    for row in data:
+        cleaned_row = {}
+        for key, value in row.items():
+            # Skip metadata fields, they'll be handled separately
+            if key in ["mapping_id", "execution_time", "source_id", "entity_root_id", "entity_id"]:
+                cleaned_row[key] = value
+                continue
+
+            field_type = field_types.get(key)
+
+            if field_type == "boolean":
+                # Handle NaN/None values
+                if value is None or (isinstance(value, float) and math.isnan(value)):
+                    cleaned_row[key] = None
+                # Handle numeric boolean values (0, 1)
+                elif isinstance(value, (int, float)):
+                    cleaned_row[key] = bool(value)
+                # Handle string boolean values
+                elif isinstance(value, str):
+                    cleaned_row[key] = value.lower() in ("true", "1", "yes", "t")
+                else:
+                    cleaned_row[key] = bool(value)
+            elif field_type == "integer":
+                # Handle NaN/None values
+                if value is None or (isinstance(value, float) and math.isnan(value)):
+                    cleaned_row[key] = None
+                else:
+                    cleaned_row[key] = value
+            else:
+                # For other types, just handle NaN
+                if isinstance(value, float) and math.isnan(value):
+                    cleaned_row[key] = None
+                else:
+                    cleaned_row[key] = value
+
+        cleaned_data.append(cleaned_row)
+
+    return cleaned_data
+
+
 def validate_schema_compatibility(
     existing_schema: StructType, new_schema: StructType, allow_new_columns: bool = True
 ) -> None:
@@ -149,11 +207,14 @@ def write_to_delta_lake(
             row["execution_time"] = execution_time
             row["source_id"] = row.get("entity_id", None)
 
-        # Create expected schema
-        expected_schema = create_spark_schema(schema_fields, data)
+        # Clean data to handle NaN values and type conversions
+        cleaned_data = clean_data_for_schema(data, schema_fields)
 
-        # Create Spark DataFrame from data
-        spark_df = spark.createDataFrame(data, schema=expected_schema)
+        # Create expected schema
+        expected_schema = create_spark_schema(schema_fields, cleaned_data)
+
+        # Create Spark DataFrame from cleaned data
+        spark_df = spark.createDataFrame(cleaned_data, schema=expected_schema)
 
         # Construct Delta Lake table path
         delta_table_path = os.path.join(settings.delta_lake_base_path, schema_name)

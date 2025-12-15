@@ -33,6 +33,9 @@ export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
                 Table Name
               </th>
               <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                Schema Handler
+              </th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
                 Description
               </th>
               <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
@@ -62,6 +65,11 @@ export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
                     </div>
                     <span className="font-medium text-neutral-900">{schema.name}</span>
                   </div>
+                </td>
+                <td className="py-4 px-4">
+                  <code className="text-sm bg-neutral-100 px-2 py-1 rounded text-neutral-700 font-mono">
+                    {schema.schema_handler}
+                  </code>
                 </td>
                 <td className="py-4 px-4">
                   <span className="text-sm text-neutral-700 line-clamp-2 max-w-xs">

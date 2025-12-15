@@ -38,6 +38,7 @@ class SchemaService:
         schemas = list(self.collection.find().sort("created_at", -1))
         for schema in schemas:
             schema["_id"] = str(schema["_id"])
+            # schema["schema_handler"] = "test"
         return [TableSchemaResponse(**schema) for schema in schemas]
 
     def get_schema(self, schema_id: str) -> TableSchemaResponse:

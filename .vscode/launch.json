@@ -17,7 +17,8 @@
       "cwd": "${workspaceFolder}/backend",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "python": "${workspaceFolder}/backend/venv/bin/python"
+      "python": "${workspaceFolder}/backend/venv/bin/python",
+      "consoleName": "Python: Backend (FastAPI)"
     },
     {
       "name": "Python: Execution Service (FastAPI)",
@@ -35,7 +36,8 @@
       "cwd": "${workspaceFolder}/execution-service",
       "console": "integratedTerminal",
       "justMyCode": false,
-      "python": "${workspaceFolder}/execution-service/venv/bin/python"
+      "python": "${workspaceFolder}/execution-service/venv/bin/python",
+      "consoleName": "Python: Execution Service (FastAPI)"
     },
     {
       "name": "Frontend (Vite)",

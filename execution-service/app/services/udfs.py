@@ -6,3 +6,8 @@ import uuid
 @udf(StringType())
 def uuidv5_udf(value):
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, value))
+
+
+@udf(StringType())
+def uuidv4_udf():
+    return str(uuid.uuid4())

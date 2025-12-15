@@ -153,6 +153,7 @@ class TargetExecutionService:
                 .option("user", target_db_config["username"])
                 .option("password", target_db_config["password"])
                 .option("driver", "org.postgresql.Driver")
+                .option("stringtype", "unspecified")
                 .mode("append")
             )
             writer.save()
@@ -160,13 +161,7 @@ class TargetExecutionService:
             logger.warning(
                 f"Handler error: {str(e)}. Writing without handler transformations."
             )
-
-        # Execute the write operation
-        #
-
-        # row_count = df.count()
-        # return row_count
-        return 1
+        return df.count()
 
 
 def execute_target_write(context: Dict[str, Any]) -> Dict[str, Any]:

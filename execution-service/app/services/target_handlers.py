@@ -3,7 +3,7 @@ from typing import Dict, Any
 import logging
 import uuid
 from app.services.udfs import uuidv5_udf
-from pyspark.sql.functions import lit, concat
+from pyspark.sql import functions as F
 
 logger = logging.getLogger(__name__)
 
@@ -28,25 +28,37 @@ class TargetHandlers:
             Modified DataFrameWriter ready to save
         """
         logger.info("Applying transformations")
-
+        df.show(100, truncate=False)
         pg_df = df.select(
             df.first_name.alias("first_name"),
             df.last_name.alias("last_name"),
-            # df.source_platform.alias("source_platform"),
-            df.full_name.alias("full_name"),
-            df.entity_id.alias("source_item_id"),
-            df.entity_id.alias("source_id"),
-            uuidv5_udf(concat(lit(context["source_id"]), df.entity_root_id)).alias(
-                "poi_id"
-            ),
-            uuidv5_udf(lit(context["source_id"])).alias("source_platform"),
+            TargetHandlers.source_id_col(context),
+            TargetHandlers.source_item_id_col(),
+            TargetHandlers.id_col(),
+            TargetHandlers.poi_id_col(context),
         )
-        pg_df = pg_df.withColumn("source_platform", lit(context["source_id"]))
-
-        df.printSchema()
-        pg_df.show(truncate=False)
 
         return {"df": pg_df, "table_name": "name_to_poi"}
+
+    @staticmethod
+    def poi_id_col(context):
+        return uuidv5_udf(
+            F.concat(F.col("entity_root_id"), F.lit(context["source_id"]))
+        ).alias("poi_id")
+
+    @staticmethod
+    def source_id_col(context):
+        return uuidv5_udf(F.lit(context["source_id"] + "SparxSourceSystem")).alias(
+            "source_id"
+        )
+
+    @staticmethod
+    def id_col():
+        return F.expr("uuid()").alias("id")
+
+    @staticmethod
+    def source_item_id_col():
+        return F.col("entity_id").cast("string").alias("source_item_id")
 
     @staticmethod
     def get_handler(schema_handler: str):

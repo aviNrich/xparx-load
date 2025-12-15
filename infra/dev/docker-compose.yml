@@ -5,13 +5,12 @@ services:
     container_name: xload-dev-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword@
+      MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: backend
       MYSQL_ROOT_HOST: '%'
     ports:
       - "3306:3306"
     volumes:
-      - ./init:/docker-entrypoint-initdb.d
       - ./data/:/tmp/data/
       - xload-dev-mysql-data:/var/lib/mysql
 

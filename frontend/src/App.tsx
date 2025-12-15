@@ -121,11 +121,21 @@ function DashboardPage() {
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
 
   return (
     <Router>
       <div className="flex h-screen bg-gradient-to-br from-purple-50 via-purple-100 to-purple-200">
-        <Sidebar activeItem={activeView} onItemClick={setActiveView} />
+        <Sidebar
+          activeItem={activeView}
+          onItemClick={setActiveView}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
+        />
 
         <main className="flex-1 overflow-auto">
           <div className="p-6">
