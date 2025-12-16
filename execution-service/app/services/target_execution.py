@@ -1,3 +1,4 @@
+import time
 from typing import Dict, Any
 import requests
 from pyspark.sql import DataFrame
@@ -6,6 +7,9 @@ from .target_handlers import TargetHandlers
 from sqlalchemy import create_engine
 import logging
 from ..config import get_settings
+from pyspark.sql.window import Window
+from pyspark.sql import functions as F
+import psycopg2
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -121,6 +125,23 @@ class TargetExecutionService:
         # Path format: /path/to/delta-lake/schema_name
         return delta_table_path.rstrip("/").split("/")[-1]
 
+    def get_pg_writer(self, df, target_db_config, table_name):
+        jdbc_url = (
+            f"jdbc:postgresql://{target_db_config['host']}:{target_db_config['port']}"
+            f"/{target_db_config['database']}"
+        )
+
+        return (
+            df.write.format("jdbc")
+            .option("url", jdbc_url)
+            .option("dbtable", table_name)
+            .option("user", target_db_config["username"])
+            .option("password", target_db_config["password"])
+            .option("driver", "org.postgresql.Driver")
+            .option("stringtype", "unspecified")
+            .mode("append")
+        )
+
     def _write_to_target_db(
         self,
         df: DataFrame,
@@ -129,33 +150,76 @@ class TargetExecutionService:
         target_db_config: Dict[str, Any],
     ) -> int:
         """Write Spark DataFrame to target PostgreSQL database using Spark JDBC"""
-        jdbc_url = (
-            f"jdbc:postgresql://{target_db_config['host']}:{target_db_config['port']}"
-            f"/{target_db_config['database']}"
-        )
 
         context = {"source_id": source_id}
         try:
             handler = TargetHandlers.get_handler(schema_handler)
             res = handler(df, context)
-            writer = (
-                res["df"]
-                .write.format("jdbc")
-                .option("url", jdbc_url)
-                .option("dbtable", res["table_name"])
-                .option("user", target_db_config["username"])
-                .option("password", target_db_config["password"])
-                .option("driver", "org.postgresql.Driver")
-                .option("stringtype", "unspecified")
-                .mode("append")
-            )
+            writer = self.get_pg_writer(res["df"], target_db_config, res["table_name"])
             writer.save()
+
+            res["df"].show(5, truncate=False)
+            w = Window.partitionBy("poi_id").orderBy("id")
+
+            poi_df = (
+                res["df"]
+                .withColumn("rn", F.row_number().over(w))
+                .filter(F.col("rn") == 1)
+                .drop("rn")
+                .select(
+                    F.col("poi_id").alias("id"),
+                    F.col("id").alias(res["primary_col"]),  # keep the original id too
+                    "source_id",
+                    "source_item_id",
+                )
+            )
+
+            self._write_poi(poi_df, target_db_config)
 
         except ValueError as e:
             logger.warning(
                 f"Handler error: {str(e)}. Writing without handler transformations."
             )
         return df.count()
+
+    def _write_poi(self, df: DataFrame, target_db_config: Dict[str, Any]) -> None:
+        temp_table = f"person_of_interest_temp_{int(time.time())}"
+
+        conn = psycopg2.connect(
+            **{
+                "host": target_db_config["host"],
+                "port": target_db_config["port"],
+                "database": target_db_config["database"],
+                "user": target_db_config["username"],
+                "password": target_db_config["password"],
+            }
+        )
+        cursor = conn.cursor()
+        cursor.execute(f"""
+        CREATE TABLE {temp_table} (LIKE person_of_interest INCLUDING ALL)
+        """)
+        conn.commit()
+
+        writer = self.get_pg_writer(df, target_db_config, temp_table)
+        saved = writer.save()
+
+        cursor.execute(f"""
+                       INSERT INTO person_of_interest (id, primary_name, primary_gender)
+            SELECT id, primary_name, primary_gender
+            FROM {temp_table}
+            ON CONFLICT (id)
+            DO UPDATE
+            SET
+            primary_name   = COALESCE(person_of_interest.primary_name, EXCLUDED.primary_name),
+            primary_gender = COALESCE(person_of_interest.primary_gender, EXCLUDED.primary_gender);
+        """)
+        conn.commit()
+
+        cursor.execute(f"DROP TABLE {temp_table}")
+        conn.commit()
+        cursor.execute("REFRESH materialized view mv_person_of_interest_details;")
+        conn.commit()
+        print(saved)
 
 
 def execute_target_write(context: Dict[str, Any]) -> Dict[str, Any]:

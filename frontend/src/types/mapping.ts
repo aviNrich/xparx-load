@@ -3,6 +3,7 @@ export interface Mapping {
   name: string;
   description?: string;
   source_connection_id: string;
+  source_name?: string;  // Populated from connection name
   sql_query: string;
   entity_root_id_column?: string;  // Entity root ID column (e.g., "poi_id")
   entity_id_column?: string;  // Row ID column (e.g., "id")

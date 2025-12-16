@@ -2,7 +2,7 @@ from pyspark.sql import DataFrame
 from typing import Dict, Any
 import logging
 import uuid
-from app.services.udfs import uuidv5_udf
+from app.services.udfs import normalize_gender, uuidv5_udf
 from pyspark.sql import functions as F
 
 logger = logging.getLogger(__name__)
@@ -16,19 +16,7 @@ class TargetHandlers:
 
     @staticmethod
     def names_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
-        """
-        Handler for names schema.
-        Applies names-specific transformations to the DataFrameWriter before saving.
-
-        Args:
-            writer: Spark DataFrameWriter configured with JDBC options
-            schema_handler: The handler name (for logging/validation)
-
-        Returns:
-            Modified DataFrameWriter ready to save
-        """
         logger.info("Applying transformations")
-        df.show(100, truncate=False)
         pg_df = df.select(
             df.first_name.alias("first_name"),
             df.last_name.alias("last_name"),
@@ -38,7 +26,20 @@ class TargetHandlers:
             TargetHandlers.poi_id_col(context),
         )
 
-        return {"df": pg_df, "table_name": "name_to_poi"}
+        return {"df": pg_df, "table_name": "name_to_poi", "primary_col": "primary_name"}
+
+    @staticmethod
+    def genders_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
+        logger.info("Applying transformations")
+        pg_df = df.select(
+            normalize_gender(df.gender).alias("gender"),
+            TargetHandlers.source_id_col(context),
+            TargetHandlers.source_item_id_col(),
+            TargetHandlers.id_col(),
+            TargetHandlers.poi_id_col(context),
+        )
+
+        return {"df": pg_df, "table_name": "gender", "primary_col": "primary_gender"}
 
     @staticmethod
     def poi_id_col(context):

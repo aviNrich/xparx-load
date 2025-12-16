@@ -17,6 +17,8 @@ interface EntityColumnSelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   columns: string[];
+  existingEntityRootIdColumn?: string;
+  existingEntityIdColumn?: string;
   onConfirm: (entityRootIdColumn: string, entityIdColumn: string) => void;
   onCancel?: () => void;
 }
@@ -74,6 +76,8 @@ export function EntityColumnSelectionDialog({
   open,
   onOpenChange,
   columns,
+  existingEntityRootIdColumn,
+  existingEntityIdColumn,
   onConfirm,
   onCancel,
 }: EntityColumnSelectionDialogProps) {
@@ -81,20 +85,29 @@ export function EntityColumnSelectionDialog({
   const [entityIdColumn, setEntityIdColumn] = useState<string>('');
   const [error, setError] = useState<string>('');
 
-  // Auto-detect columns when dialog opens or columns change
+  // Auto-detect or use existing columns when dialog opens or columns change
   useEffect(() => {
     if (open && columns.length > 0) {
-      const detected = detectEntityColumns(columns);
-
-      if (detected.rootId) {
-        setEntityRootIdColumn(detected.rootId);
+      // Prioritize existing values over auto-detection
+      if (existingEntityRootIdColumn && columns.includes(existingEntityRootIdColumn)) {
+        setEntityRootIdColumn(existingEntityRootIdColumn);
+      } else {
+        const detected = detectEntityColumns(columns);
+        if (detected.rootId) {
+          setEntityRootIdColumn(detected.rootId);
+        }
       }
 
-      if (detected.entityId) {
-        setEntityIdColumn(detected.entityId);
+      if (existingEntityIdColumn && columns.includes(existingEntityIdColumn)) {
+        setEntityIdColumn(existingEntityIdColumn);
+      } else {
+        const detected = detectEntityColumns(columns);
+        if (detected.entityId) {
+          setEntityIdColumn(detected.entityId);
+        }
       }
     }
-  }, [open, columns]);
+  }, [open, columns, existingEntityRootIdColumn, existingEntityIdColumn]);
 
   const handleConfirm = () => {
     // Validate selections

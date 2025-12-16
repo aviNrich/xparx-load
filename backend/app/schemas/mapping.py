@@ -48,6 +48,7 @@ class MappingUpdate(BaseModel):
 
 class MappingResponse(MappingBase):
     id: str = Field(alias="_id")
+    source_name: Optional[str] = None  # Populated from connection name
     created_at: datetime
     updated_at: datetime
 

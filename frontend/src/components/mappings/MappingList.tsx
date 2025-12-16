@@ -83,7 +83,9 @@ export function MappingList({ mappings, onEdit, onDelete, onNew }: MappingListPr
                   </span>
                 </td>
                 <td className="py-4 px-4">
-                  <span className="text-sm text-neutral-700">{mapping.source_connection_id}</span>
+                  <span className="text-sm text-neutral-700">
+                    {mapping.source_name || mapping.source_connection_id}
+                  </span>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-2">

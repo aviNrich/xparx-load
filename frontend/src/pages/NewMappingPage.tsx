@@ -58,6 +58,8 @@ export function NewMappingPage() {
   const [pendingTableSelection, setPendingTableSelection] = useState<TableInfo | null>(null);
   const [sourceTable, setSourceTable] = useState('');
   const [entityColumnDialogOpen, setEntityColumnDialogOpen] = useState(false);
+  const [existingEntityRootIdColumn, setExistingEntityRootIdColumn] = useState<string | undefined>(undefined);
+  const [existingEntityIdColumn, setExistingEntityIdColumn] = useState<string | undefined>(undefined);
 
   const {
     register,
@@ -91,6 +93,10 @@ export function NewMappingPage() {
           setValue('description', mapping.description || '');
           setValue('source_connection_id', mapping.source_connection_id);
           setValue('sql_query', mapping.sql_query);
+
+          // Store existing entity columns
+          setExistingEntityRootIdColumn(mapping.entity_root_id_column);
+          setExistingEntityIdColumn(mapping.entity_id_column);
 
           // Auto-run preview for readonly view
           setIsPreviewing(true);
@@ -307,6 +313,7 @@ export function NewMappingPage() {
                         await mappingAPI.update(mappingId!, {
                           name: formData.name,
                           description: formData.description,
+                          source_connection_id: formData.source_connection_id,
                           sql_query: formData.sql_query,
                         });
                       } catch (error) {
@@ -599,6 +606,8 @@ export function NewMappingPage() {
         open={entityColumnDialogOpen}
         onOpenChange={setEntityColumnDialogOpen}
         columns={previewData?.columns || []}
+        existingEntityRootIdColumn={existingEntityRootIdColumn}
+        existingEntityIdColumn={existingEntityIdColumn}
         onConfirm={handleEntityColumnSelection}
         onCancel={() => setEntityColumnDialogOpen(false)}
       />

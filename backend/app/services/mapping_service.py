@@ -226,6 +226,13 @@ class MappingService:
             raise ValueError(f"Mapping not found: {mapping_id}")
 
         mapping["_id"] = str(mapping["_id"])
+
+        # Populate source_name from connection
+        if mapping.get("source_connection_id"):
+            connection = self.collection.find_one({"_id": ObjectId(mapping["source_connection_id"])})
+            if connection:
+                mapping["source_name"] = connection.get("name")
+
         return MappingResponse(**mapping)
 
     def list_mappings(self) -> List[MappingResponse]:
@@ -233,6 +240,13 @@ class MappingService:
         mappings = list(self.mappings_collection.find().sort("updated_at", -1))
         for mapping in mappings:
             mapping["_id"] = str(mapping["_id"])
+
+            # Populate source_name from connection
+            if mapping.get("source_connection_id"):
+                connection = self.collection.find_one({"_id": ObjectId(mapping["source_connection_id"])})
+                if connection:
+                    mapping["source_name"] = connection.get("name")
+
         return [MappingResponse(**mapping) for mapping in mappings]
 
     def update_mapping(self, mapping_id: str, update: MappingUpdate) -> MappingResponse:
