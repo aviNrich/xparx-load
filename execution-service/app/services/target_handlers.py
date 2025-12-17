@@ -37,6 +37,33 @@ class TargetHandlers:
             "related_table": "interest",
             "table_name": "interest_to_entities",
             "primary_col": "primary_name",
+            "related_poi_col": "entity_id",
+        }
+
+    @staticmethod
+    def emails_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
+        logger.info("Applying transformations")
+        pg_df = df.select(
+            TargetHandlers.poi_id_col(context).alias("entity_id"),
+            TargetHandlers.value_id_col("email").alias("email_address_id"),
+            TargetHandlers.source_id_col(context),
+            TargetHandlers.source_item_id_col(),
+            TargetHandlers.id_col(),
+        )
+        pg_df = pg_df = pg_df.withColumn("email_address_entity_type", F.lit("PoI"))
+
+        related_df = df.select(  #
+            TargetHandlers.value_id_col("email").alias("id"),
+            df.email.alias("email_value"),
+        ).distinct()
+
+        return {
+            "df": pg_df,
+            "related_df": related_df,
+            "related_table": "email",
+            "table_name": "email_address_to_entities",
+            "primary_col": "primary_email",
+            "related_poi_col": "entity_id",
         }
 
     @staticmethod
@@ -51,7 +78,12 @@ class TargetHandlers:
             TargetHandlers.poi_id_col(context).alias("poi_id"),
         )
 
-        return {"df": pg_df, "table_name": "name_to_poi", "primary_col": "primary_name"}
+        return {
+            "df": pg_df,
+            "table_name": "name_to_poi",
+            "primary_col": "primary_name",
+            "related_poi_col": "poi_id",
+        }
 
     @staticmethod
     def genders_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
@@ -64,7 +96,12 @@ class TargetHandlers:
             TargetHandlers.poi_id_col(context).alias("poi_id"),
         )
 
-        return {"df": pg_df, "table_name": "gender", "primary_col": "primary_gender"}
+        return {
+            "df": pg_df,
+            "table_name": "gender",
+            "primary_col": "primary_gender",
+            "related_poi_col": "poi_id",
+        }
 
     @staticmethod
     def poi_id_col(context):

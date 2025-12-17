@@ -155,28 +155,27 @@ class TargetExecutionService:
         try:
             handler = TargetHandlers.get_handler(schema_handler)
             res = handler(df, context)
-            writer = self.get_pg_writer(res["df"], target_db_config, res["table_name"])
+            writer = self.get_pg_writer(
+                res["df"], target_db_config, res["table_name"], "append"
+            )
             writer.save()
 
             res["df"].show(5, truncate=False)
-            w = Window.partitionBy("poi_id").orderBy("id")
 
             if "related_df" in res:
-                res["related_df"].printSchema()
-                res["related_df"].explain(True)
-
                 related_writer = self.get_pg_writer(
                     res["related_df"], target_db_config, res["related_table"], "ignore"
                 )
                 related_writer.save()
-
+                res["related_df"].show(5, truncate=False)
+            w = Window.partitionBy(res["related_poi_col"]).orderBy("id")
             poi_df = (
                 res["df"]
                 .withColumn("rn", F.row_number().over(w))
                 .filter(F.col("rn") == 1)
                 .drop("rn")
                 .select(
-                    F.col("poi_id").alias("id"),
+                    F.col(res["related_poi_col"]).alias("id"),
                     F.col("id").alias(res["primary_col"]),  # keep the original id too
                     "source_id",
                     "source_item_id",
