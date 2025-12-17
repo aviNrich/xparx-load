@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,7 +44,9 @@ const WIZARD_STEPS: Step[] = [
 export function NewMappingPage() {
   const navigate = useNavigate();
   const { mappingId } = useParams<{ mappingId: string }>();
+  const [searchParams] = useSearchParams();
   const isEditMode = !!mappingId; // If we have a mappingId, this is edit mode
+  const sourceFromQuery = searchParams.get('source');
 
   const { connections, loading: connectionsLoading } = useConnections();
   const [previewData, setPreviewData] = useState<SqlPreviewResponse | null>(null);
@@ -72,7 +74,7 @@ export function NewMappingPage() {
     defaultValues: {
       name: '',
       description: '',
-      source_connection_id: '',
+      source_connection_id: sourceFromQuery || '',
       sql_query: '',
     },
   });
