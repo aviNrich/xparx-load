@@ -1,4 +1,4 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
 import { Connection } from '../../types/connection';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -6,11 +6,10 @@ import { Pencil, Trash2, Database, CheckCircle, XCircle } from 'lucide-react';
 
 interface ConnectionListProps {
   connections: Connection[];
-  onEdit: (connection: Connection) => void;
   onDelete: (connection: Connection) => void;
 }
 
-export function ConnectionList({ connections, onEdit, onDelete }: ConnectionListProps) {
+export function ConnectionList({ connections, onDelete }: ConnectionListProps) {
   if (connections.length === 0) {
     return (
       <div className="text-center py-24 bg-white rounded-xl border border-neutral-200">
@@ -112,12 +111,14 @@ export function ConnectionList({ connections, onEdit, onDelete }: ConnectionList
                 <td className="py-4 px-4">
                   <div className="flex items-center justify-end gap-2">
                     <Button
+                      asChild
                       size="sm"
                       variant="outline"
-                      onClick={() => onEdit(connection)}
                       className="border-neutral-200 hover:bg-neutral-50"
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Link to={`/sources/${connection._id}`}>
+                        <Pencil className="h-3 w-3" />
+                      </Link>
                     </Button>
                     <Button
                       size="sm"

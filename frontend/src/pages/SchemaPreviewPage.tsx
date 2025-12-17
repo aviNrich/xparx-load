@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Alert } from '../components/ui/alert';
@@ -18,7 +18,6 @@ import { ArrowLeft, Search, ChevronLeft, ChevronRight, X, Link2, Plus } from 'lu
 
 const SchemaPreviewPage = () => {
   const { tableName } = useParams<{ tableName: string }>();
-  const navigate = useNavigate();
 
   const [data, setData] = useState<DeltaQueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -226,12 +225,14 @@ const SchemaPreviewPage = () => {
       {/* Header */}
       <div className="mb-6">
         <Button
+          asChild
           variant="ghost"
-          onClick={() => navigate('/schema')}
           className="mb-4"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Schemas
+          <Link to="/schema">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Schemas
+          </Link>
         </Button>
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">

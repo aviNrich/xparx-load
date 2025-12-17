@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { SchemaForm } from '../components/schemas/SchemaForm';
 import { Button } from '../components/ui/button';
 import { useSchemas } from '../hooks/useSchemas';
@@ -82,13 +82,15 @@ export function SchemaFormPage() {
         <div className="px-6 py-4">
           <div className="flex items-center gap-4">
             <Button
+              asChild
               variant="ghost"
               size="sm"
-              onClick={handleCancel}
               className="gap-2"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Back
+              <Link to="/schema">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Link>
             </Button>
             <div>
               <h1 className="text-xl font-bold text-neutral-900">

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { Mapping } from '../../types/mapping';
 import { Button } from '../ui/button';
@@ -7,12 +8,10 @@ import { Pencil, Trash2, Workflow, Plus, Eye } from 'lucide-react';
 
 interface MappingListProps {
   mappings: Mapping[];
-  onEdit?: (mapping: Mapping) => void;
   onDelete?: (mapping: Mapping) => void;
-  onNew?: () => void;
 }
 
-export function MappingList({ mappings, onEdit, onDelete, onNew }: MappingListProps) {
+export function MappingList({ mappings, onDelete }: MappingListProps) {
   const [queryDialogOpen, setQueryDialogOpen] = useState(false);
   const [selectedQuery, setSelectedQuery] = useState<string>('');
 
@@ -27,12 +26,12 @@ export function MappingList({ mappings, onEdit, onDelete, onNew }: MappingListPr
         <Workflow className="mx-auto h-16 w-16 text-neutral-400 mb-4" />
         <h3 className="text-xl font-semibold text-neutral-900 mb-2">No mappings yet</h3>
         <p className="text-neutral-600 mb-6">Create your first mapping to get started.</p>
-        {onNew && (
-          <Button onClick={onNew} className="bg-primary-500 hover:bg-primary-600">
+        <Button asChild className="bg-primary-500 hover:bg-primary-600">
+          <Link to="/mappings/new">
             <Plus className="mr-2 h-4 w-4" />
             Create Mapping
-          </Button>
-        )}
+          </Link>
+        </Button>
       </div>
     );
   }
@@ -112,16 +111,16 @@ export function MappingList({ mappings, onEdit, onDelete, onNew }: MappingListPr
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center justify-end gap-2">
-                    {onEdit && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onEdit(mapping)}
-                        className="border-neutral-200 hover:bg-neutral-50"
-                      >
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="border-neutral-200 hover:bg-neutral-50"
+                    >
+                      <Link to={`/mappings/${mapping._id}`}>
                         <Pencil className="h-3 w-3" />
-                      </Button>
-                    )}
+                      </Link>
+                    </Button>
                     {onDelete && (
                       <Button
                         size="sm"

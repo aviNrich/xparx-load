@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Stepper, Step } from '../components/ui/stepper';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -254,12 +254,14 @@ export function ColumnMappingPage() {
             {/* Action Buttons in Header */}
             <div className="flex gap-2">
               <Button
+                asChild
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/mappings')}
                 size="sm"
               >
-                Cancel
+                <Link to="/mappings">
+                  Cancel
+                </Link>
               </Button>
               <Button
                 type="button"

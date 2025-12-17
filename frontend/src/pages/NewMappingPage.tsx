@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -271,13 +271,15 @@ export function NewMappingPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
+                asChild
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/mappings')}
                 className="gap-2"
               >
-                <ArrowLeft className="h-4 w-4" />
-                Back
+                <Link to="/mappings">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Link>
               </Button>
               <div>
                 <h1 className="text-xl font-bold text-neutral-900">
@@ -294,12 +296,14 @@ export function NewMappingPage() {
               {isEditMode ? (
                 <>
                   <Button
+                    asChild
                     type="button"
                     variant="outline"
-                    onClick={() => navigate('/mappings')}
                     size="sm"
                   >
-                    Cancel
+                    <Link to="/mappings">
+                      Cancel
+                    </Link>
                   </Button>
                   <Button
                     type="button"
@@ -344,12 +348,14 @@ export function NewMappingPage() {
               ) : (
                 <>
                   <Button
+                    asChild
                     type="button"
                     variant="outline"
-                    onClick={() => navigate('/mappings')}
                     size="sm"
                   >
-                    Cancel
+                    <Link to="/mappings">
+                      Cancel
+                    </Link>
                   </Button>
                   <Button
                     type="submit"

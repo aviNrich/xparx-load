@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ConnectionForm } from '../components/connections/ConnectionForm';
 import { Button } from '../components/ui/button';
 import { useConnections } from '../hooks/useConnections';
@@ -85,13 +85,15 @@ export function SourceFormPage() {
         <div className="px-6 py-4">
           <div className="flex items-center gap-4">
             <Button
+              asChild
               variant="ghost"
               size="sm"
-              onClick={handleCancel}
               className="gap-2"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Back
+              <Link to="/sources">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Link>
             </Button>
             <div>
               <h1 className="text-xl font-bold text-neutral-900">

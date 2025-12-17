@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ConnectionList } from '../components/connections/ConnectionList';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { Button } from '../components/ui/button';
@@ -9,7 +9,6 @@ import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
 export function SourcesPage() {
-  const navigate = useNavigate();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState<Connection | null>(null);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
@@ -21,10 +20,6 @@ export function SourcesPage() {
     error,
     deleteConnection,
   } = useConnections();
-
-  const handleEdit = (connection: Connection) => {
-    navigate(`/sources/${connection._id}`);
-  };
 
   const handleDelete = (connection: Connection) => {
     setConnectionToDelete(connection);
@@ -44,10 +39,6 @@ export function SourcesPage() {
     }
   };
 
-  const handleNewConnection = () => {
-    navigate('/sources/new');
-  };
-
   return (
     <>
       {/* Header */}
@@ -58,11 +49,13 @@ export function SourcesPage() {
             <p className="text-sm text-neutral-500 mt-1">Manage your database connections for ETL pipelines</p>
           </div>
           <Button
-            onClick={handleNewConnection}
+            asChild
             className="bg-primary-500 hover:bg-primary-600 text-white shadow-sm"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            New Connection
+            <Link to="/sources/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Connection
+            </Link>
           </Button>
         </div>
       </div>
@@ -104,7 +97,6 @@ export function SourcesPage() {
       ) : (
         <ConnectionList
           connections={connections}
-          onEdit={handleEdit}
           onDelete={handleDelete}
         />
       )}

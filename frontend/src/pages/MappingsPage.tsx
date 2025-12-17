@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MappingList } from '../components/mappings/MappingList';
 import { Button } from '../components/ui/button';
 import { Plus, Loader2, AlertCircle } from 'lucide-react';
@@ -9,21 +9,11 @@ import { useMappings } from '../hooks/useMappings';
 import { Mapping } from '../types/mapping';
 
 export const MappingsPage = () => {
-  const navigate = useNavigate();
   const { mappings, loading, error, deleteMapping } = useMappings();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [mappingToDelete, setMappingToDelete] = useState<Mapping | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
-
-  const handleNewMapping = () => {
-    navigate('/mappings/new');
-  };
-
-  const handleEdit = (mapping: Mapping) => {
-    // Navigate to readonly view of the mapping
-    navigate(`/mappings/${mapping._id}`);
-  };
 
   const handleDelete = (mapping: Mapping) => {
     setMappingToDelete(mapping);
@@ -53,11 +43,13 @@ export const MappingsPage = () => {
             <p className="text-sm text-neutral-500 mt-1">Configure ETL data mappings</p>
           </div>
           <Button
-            onClick={handleNewMapping}
+            asChild
             className="bg-primary-500 hover:bg-primary-600 text-white shadow-sm"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            New Mapping
+            <Link to="/mappings/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Mapping
+            </Link>
           </Button>
         </div>
       </div>
@@ -82,8 +74,6 @@ export const MappingsPage = () => {
         /* Mapping List */
         <MappingList
           mappings={mappings}
-          onNew={handleNewMapping}
-          onEdit={handleEdit}
           onDelete={handleDelete}
         />
       )}

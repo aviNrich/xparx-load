@@ -163,10 +163,9 @@ class TargetExecutionService:
             res["df"].show(5, truncate=False)
 
             if "related_df" in res:
-                related_writer = self.get_pg_writer(
-                    res["related_df"], target_db_config, res["related_table"], "ignore"
+                self._write_related_with_conflict_handling(
+                    res["related_df"], target_db_config, res["related_table"]
                 )
-                related_writer.save()
                 res["related_df"].show(5, truncate=False)
             w = Window.partitionBy(res["related_poi_col"]).orderBy("id")
             poi_df = (
@@ -212,14 +211,17 @@ class TargetExecutionService:
         saved = writer.save()
 
         cursor.execute(f"""
-                       INSERT INTO person_of_interest (id, primary_name, primary_gender)
-            SELECT id, primary_name, primary_gender
+                       INSERT INTO person_of_interest (id, primary_name, primary_gender, primary_interest, primary_email, primary_device)
+            SELECT id, primary_name, primary_gender, primary_interest, primary_email, primary_device
             FROM {temp_table}
             ON CONFLICT (id)
             DO UPDATE
             SET
             primary_name   = COALESCE(person_of_interest.primary_name, EXCLUDED.primary_name),
-            primary_gender = COALESCE(person_of_interest.primary_gender, EXCLUDED.primary_gender);
+            primary_gender = COALESCE(person_of_interest.primary_gender, EXCLUDED.primary_gender),
+            primary_interest = COALESCE(person_of_interest.primary_interest, EXCLUDED.primary_interest),
+            primary_email = COALESCE(person_of_interest.primary_email, EXCLUDED.primary_email),
+            primary_device = COALESCE(person_of_interest.primary_device, EXCLUDED.primary_device)
         """)
         conn.commit()
 
@@ -228,6 +230,55 @@ class TargetExecutionService:
         cursor.execute("REFRESH materialized view mv_person_of_interest_details;")
         conn.commit()
         print(saved)
+
+    def _write_related_with_conflict_handling(
+        self, df: DataFrame, target_db_config: Dict[str, Any], table_name: str
+    ) -> None:
+        """Write related table data with proper conflict handling using temp table strategy"""
+        temp_table = f"{table_name}_temp_{int(time.time())}"
+
+        conn = psycopg2.connect(
+            **{
+                "host": target_db_config["host"],
+                "port": target_db_config["port"],
+                "database": target_db_config["database"],
+                "user": target_db_config["username"],
+                "password": target_db_config["password"],
+            }
+        )
+        cursor = conn.cursor()
+
+        try:
+            # Create temp table with same structure as target table
+            cursor.execute(f"""
+                CREATE TABLE {temp_table} (LIKE {table_name} INCLUDING ALL)
+            """)
+            conn.commit()
+
+            # Write data to temp table
+            writer = self.get_pg_writer(df, target_db_config, temp_table, "append")
+            writer.save()
+
+            # Insert from temp table with conflict handling
+            cursor.execute(f"""
+                INSERT INTO {table_name}
+                SELECT * FROM {temp_table}
+                ON CONFLICT (id) DO NOTHING
+            """)
+            conn.commit()
+
+            logger.info(f"Successfully wrote to {table_name} with conflict handling")
+
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Failed to write to {table_name}: {str(e)}")
+            raise
+        finally:
+            # drop temp table and close connection
+            cursor.execute(f"DROP TABLE {temp_table}")
+            conn.commit()
+            cursor.close()
+            conn.close()
 
 
 def execute_target_write(context: Dict[str, Any]) -> Dict[str, Any]:

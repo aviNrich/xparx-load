@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Stepper, Step } from '../components/ui/stepper';
 import { Label } from '../components/ui/label';
@@ -232,12 +232,14 @@ export function SchedulingPage() {
       <div className="border-b border-neutral-200 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <Button
+            asChild
             variant="ghost"
-            onClick={() => navigate('/mappings')}
             className="flex items-center gap-2"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Mappings
+            <Link to="/mappings">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Mappings
+            </Link>
           </Button>
           <h1 className="text-xl font-semibold">ETL Mapping Wizard</h1>
         </div>
@@ -566,12 +568,14 @@ export function SchedulingPage() {
       <div className="border-t border-neutral-200 px-6 py-4 bg-white">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Button
+            asChild
             variant="outline"
-            onClick={() => navigate(`/mappings/${mappingId}/columns`)}
             disabled={saving}
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            <Link to={`/mappings/${mappingId}/columns`}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Link>
           </Button>
           <Button
             onClick={handleSave}

@@ -4,7 +4,8 @@
       "Bash(npm create:*)",
       "Bash(docker inspect:*)",
       "Bash(python3:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

@@ -16,7 +16,6 @@ class TargetHandlers:
 
     @staticmethod
     def interests_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
-        logger.info("Applying transformations")
         pg_df = df.select(
             TargetHandlers.poi_id_col(context).alias("entity_id"),
             TargetHandlers.value_id_col("interest_name").alias("interest_id"),
@@ -26,7 +25,7 @@ class TargetHandlers:
         )
         pg_df = pg_df = pg_df.withColumn("entity_type", F.lit("PoI"))
 
-        related_df = df.select(  # interest
+        related_df = df.select(
             TargetHandlers.value_id_col("interest_name").alias("id"),
             df.interest_name.alias("interest_name"),
         ).distinct()
@@ -41,8 +40,32 @@ class TargetHandlers:
         }
 
     @staticmethod
+    def industries_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
+        pg_df = df.select(
+            TargetHandlers.poi_id_col(context).alias("entity_id"),
+            TargetHandlers.value_id_col("name").alias("industry_id"),
+            TargetHandlers.source_id_col(context),
+            TargetHandlers.source_item_id_col(),
+            TargetHandlers.id_col(),
+        )
+        pg_df = pg_df = pg_df.withColumn("entity_type", F.lit("PoI"))
+
+        related_df = df.select(
+            TargetHandlers.value_id_col("name").alias("id"),
+            df.name.alias("name"),
+        ).distinct()
+
+        return {
+            "df": pg_df,
+            "related_df": related_df,
+            "related_table": "industry",
+            "table_name": "industry_to_entities",
+            "primary_col": "primary_industry",
+            "related_poi_col": "entity_id",
+        }
+
+    @staticmethod
     def emails_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
-        logger.info("Applying transformations")
         pg_df = df.select(
             TargetHandlers.poi_id_col(context).alias("entity_id"),
             TargetHandlers.value_id_col("email").alias("email_address_id"),
@@ -68,7 +91,6 @@ class TargetHandlers:
 
     @staticmethod
     def names_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
-        logger.info("Applying transformations")
         pg_df = df.select(
             df.first_name.alias("first_name"),
             df.last_name.alias("last_name"),
@@ -86,8 +108,33 @@ class TargetHandlers:
         }
 
     @staticmethod
+    def phones_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
+        pg_df = df.select(
+            TargetHandlers.poi_id_col(context).alias("entity_id"),
+            TargetHandlers.value_id_col("phone_number").alias("phone_number_id"),
+            TargetHandlers.source_id_col(context),
+            TargetHandlers.source_item_id_col(),
+            TargetHandlers.id_col(),
+        )
+        pg_df = pg_df = pg_df.withColumn("entity_type", F.lit("PoI"))
+
+        related_df = df.select(  #
+            TargetHandlers.value_id_col("phone_number").alias("id"),
+            df.phone_number.alias("original_value"),
+            df.phone_number.alias("sanitized_value"),
+        ).distinct()
+
+        return {
+            "df": pg_df,
+            "related_df": related_df,
+            "related_table": "phone_number",
+            "table_name": "phone_number_to_entities",
+            "primary_col": "primary_device",
+            "related_poi_col": "entity_id",
+        }
+
+    @staticmethod
     def genders_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
-        logger.info("Applying transformations")
         pg_df = df.select(
             normalize_gender(df.gender).alias("gender"),
             TargetHandlers.source_id_col(context),

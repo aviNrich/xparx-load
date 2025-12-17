@@ -1,5 +1,5 @@
 import { LayoutDashboard, Bell, Map, Settings, Database, Eye, Menu } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
   activeItem: string;
@@ -115,29 +115,55 @@ export function Sidebar({ activeItem, onItemClick, isCollapsed, onToggleCollapse
 
             return (
               <li key={item.id}>
-                <button
-                  onClick={() => handleMenuClick(item)}
-                  className={`w-full flex items-center ${isExpanded ? 'justify-between' : 'justify-center'} px-3 py-2 rounded-md text-sm transition-colors ${
-                    isActive
-                      ? 'bg-primary-500 text-white'
-                      : 'text-neutral-700 hover:bg-neutral-100'
-                  }`}
-                  title={!isExpanded ? item.label : undefined}
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-4 w-4" />
-                    {isExpanded && <span>{item.label}</span>}
-                  </div>
-                  {isExpanded && item.badge && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                {item.path ? (
+                  <Link
+                    to={item.path}
+                    className={`w-full flex items-center ${isExpanded ? 'justify-between' : 'justify-center'} px-3 py-2 rounded-md text-sm transition-colors ${
                       isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-primary-500 text-white'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
+                        ? 'bg-primary-500 text-white'
+                        : 'text-neutral-700 hover:bg-neutral-100'
+                    }`}
+                    title={!isExpanded ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      {isExpanded && <span>{item.label}</span>}
+                    </div>
+                    {isExpanded && item.badge && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-primary-500 text-white'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => onItemClick(item.id)}
+                    className={`w-full flex items-center ${isExpanded ? 'justify-between' : 'justify-center'} px-3 py-2 rounded-md text-sm transition-colors ${
+                      isActive
+                        ? 'bg-primary-500 text-white'
+                        : 'text-neutral-700 hover:bg-neutral-100'
+                    }`}
+                    title={!isExpanded ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      {isExpanded && <span>{item.label}</span>}
+                    </div>
+                    {isExpanded && item.badge && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-primary-500 text-white'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                )}
               </li>
             );
           })}
@@ -193,29 +219,55 @@ export function Sidebar({ activeItem, onItemClick, isCollapsed, onToggleCollapse
 
             return (
               <li key={item.id}>
-                <button
-                  onClick={() => handleMenuClick(item)}
-                  className={`w-full flex items-center ${isExpanded ? 'justify-between' : 'justify-center'} px-3 py-2 rounded-md text-sm transition-colors ${
-                    isActive
-                      ? 'bg-primary-500 text-white'
-                      : 'text-neutral-700 hover:bg-neutral-100'
-                  }`}
-                  title={!isExpanded ? item.label : undefined}
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-4 w-4" />
-                    {isExpanded && <span>{item.label}</span>}
-                  </div>
-                  {isExpanded && item.badge && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                {item.path ? (
+                  <Link
+                    to={item.path}
+                    className={`w-full flex items-center ${isExpanded ? 'justify-between' : 'justify-center'} px-3 py-2 rounded-md text-sm transition-colors ${
                       isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-primary-500 text-white'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
+                        ? 'bg-primary-500 text-white'
+                        : 'text-neutral-700 hover:bg-neutral-100'
+                    }`}
+                    title={!isExpanded ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      {isExpanded && <span>{item.label}</span>}
+                    </div>
+                    {isExpanded && item.badge && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-primary-500 text-white'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => onItemClick(item.id)}
+                    className={`w-full flex items-center ${isExpanded ? 'justify-between' : 'justify-center'} px-3 py-2 rounded-md text-sm transition-colors ${
+                      isActive
+                        ? 'bg-primary-500 text-white'
+                        : 'text-neutral-700 hover:bg-neutral-100'
+                    }`}
+                    title={!isExpanded ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      {isExpanded && <span>{item.label}</span>}
+                    </div>
+                    {isExpanded && item.badge && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-primary-500 text-white'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                )}
 
                 {/* Sub-items - Always visible when expanded */}
                 {isExpanded && hasSubItems && (
@@ -224,8 +276,8 @@ export function Sidebar({ activeItem, onItemClick, isCollapsed, onToggleCollapse
                       const isSubItemActive = activeSubItemId === subItem.id;
                       return (
                         <li key={subItem.id}>
-                          <button
-                            onClick={() => navigate(subItem.path)}
+                          <Link
+                            to={subItem.path}
                             className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
                               isSubItemActive
                                 ? 'text-primary-600 bg-primary-50'
@@ -234,7 +286,7 @@ export function Sidebar({ activeItem, onItemClick, isCollapsed, onToggleCollapse
                           >
                             <subItem.icon className="h-3 w-3" />
                             <span>{subItem.label}</span>
-                          </button>
+                          </Link>
                         </li>
                       );
                     })}

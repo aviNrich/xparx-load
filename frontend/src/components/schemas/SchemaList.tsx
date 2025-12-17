@@ -1,8 +1,8 @@
+import { Link } from 'react-router-dom';
 import { TableSchema } from '../../types/schema';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Pencil, Trash2, Table2, Eye } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 interface SchemaListProps {
   schemas: TableSchema[];
@@ -11,7 +11,6 @@ interface SchemaListProps {
 }
 
 export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
-  const navigate = useNavigate();
 
   if (schemas.length === 0) {
     return (
@@ -94,13 +93,15 @@ export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
                 <td className="py-4 px-4">
                   <div className="flex items-center justify-end gap-2">
                     <Button
+                      asChild
                       size="sm"
                       variant="outline"
-                      onClick={() => navigate(`/schema/preview/${schema.name}`)}
                       className="border-primary-200 text-primary-600 hover:bg-primary-50"
                       title="Preview data"
                     >
-                      <Eye className="h-3 w-3" />
+                      <Link to={`/schema/preview/${schema.name}`}>
+                        <Eye className="h-3 w-3" />
+                      </Link>
                     </Button>
                     <Button
                       size="sm"
