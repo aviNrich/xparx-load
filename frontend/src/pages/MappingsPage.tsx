@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { MappingList } from '../components/mappings/MappingList';
-import { Button } from '../components/ui/button';
-import { Plus, Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { useMappings } from '../hooks/useMappings';
@@ -37,20 +35,9 @@ export const MappingsPage = () => {
     <>
       {/* Header */}
       <div className="mb-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Data Mappings</h1>
-            <p className="text-sm text-neutral-500 mt-1">Configure ETL data mappings</p>
-          </div>
-          <Button
-            asChild
-            className="bg-primary-500 hover:bg-primary-600 text-white shadow-sm"
-          >
-            <Link to="/mappings/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Mapping
-            </Link>
-          </Button>
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Data Mappings</h1>
+          <p className="text-sm text-neutral-500 mt-1">Configure ETL data mappings</p>
         </div>
       </div>
 

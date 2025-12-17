@@ -62,18 +62,22 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-      <Accordion type="multiple" defaultValue={groupedMappings.map(g => g.sourceId)} className="w-full">
+    <div className="space-y-4">
+      <Accordion type="multiple" defaultValue={[]} className="space-y-4">
         {groupedMappings.map((group) => (
-          <AccordionItem key={group.sourceId} value={group.sourceId}>
-            <AccordionTrigger className="hover:no-underline">
+          <AccordionItem
+            key={group.sourceId}
+            value={group.sourceId}
+            className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm"
+          >
+            <AccordionTrigger className="hover:no-underline px-6 py-4 hover:bg-neutral-50">
               <div className="flex items-center justify-between w-full pr-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Database className="h-4 w-4 text-blue-600" />
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Database className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="text-left">
-                    <h3 className="font-semibold text-neutral-900">{group.sourceName}</h3>
+                    <h3 className="font-semibold text-neutral-900 text-base">{group.sourceName}</h3>
                     <p className="text-xs text-neutral-500">
                       {group.mappings.length} {group.mappings.length === 1 ? 'mapping' : 'mappings'}
                     </p>
@@ -93,35 +97,36 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                 </Button>
               </div>
             </AccordionTrigger>
-            <AccordionContent>
-              <div className="overflow-x-auto">
+            <AccordionContent className="px-0 pb-0">
+              <div className="border-t border-neutral-200 bg-neutral-50/50">
+                <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-neutral-50 border-b border-neutral-200">
+                  <thead className="bg-neutral-100 border-b border-neutral-200">
                     <tr>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                      <th className="text-left py-3 px-6 text-xs font-semibold text-neutral-700 uppercase tracking-wider">
                         Name
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                      <th className="text-left py-3 px-6 text-xs font-semibold text-neutral-700 uppercase tracking-wider">
                         Description
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                      <th className="text-left py-3 px-6 text-xs font-semibold text-neutral-700 uppercase tracking-wider">
                         Query
                       </th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                      <th className="text-left py-3 px-6 text-xs font-semibold text-neutral-700 uppercase tracking-wider">
                         Created
                       </th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                      <th className="text-right py-3 px-6 text-xs font-semibold text-neutral-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-100">
+                  <tbody className="divide-y divide-neutral-200 bg-white">
                     {group.mappings.map((mapping) => (
                       <tr
                         key={mapping._id}
-                        className="hover:bg-neutral-50 transition-colors"
+                        className="hover:bg-blue-50/30 transition-colors"
                       >
-                        <td className="py-4 px-4">
+                        <td className="py-4 px-6">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
                               <Workflow className="h-4 w-4 text-primary-600" />
@@ -129,12 +134,12 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                             <span className="font-medium text-neutral-900">{mapping.name}</span>
                           </div>
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="py-4 px-6">
                           <span className="text-sm text-neutral-700">
                             {mapping.description || <span className="italic text-neutral-400">No description</span>}
                           </span>
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-mono text-neutral-700 truncate max-w-xs">
                               {mapping.sql_query.length > 50
@@ -152,12 +157,12 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                             </Button>
                           </div>
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="py-4 px-6">
                           <span className="text-xs text-neutral-500">
                             {new Date(mapping.created_at).toLocaleDateString()}
                           </span>
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="py-4 px-6">
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               asChild
@@ -186,12 +191,13 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                   </tbody>
                 </table>
               </div>
+              </div>
             </AccordionContent>
           </AccordionItem>
         ))}
       </Accordion>
-
-      {/* Query View Dialog */}
+   
+      
       <Dialog open={queryDialogOpen} onOpenChange={setQueryDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh]">
           <DialogHeader>

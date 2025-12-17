@@ -84,6 +84,25 @@ export function NewMappingPage() {
 
   const { tables, loading: tablesLoading } = useTables(sourceConnectionId || null);
 
+  // Get the selected connection to check if it's a file upload
+  const selectedConnection = connections.find((conn) => conn._id === sourceConnectionId);
+  const isFileUpload = selectedConnection?.db_type === 'file';
+
+  // Set default query for file uploads
+  useEffect(() => {
+    // Skip in edit mode
+    if (isEditMode) return;
+
+    if (isFileUpload && sourceConnectionId) {
+      // Only set if query is empty or hasn't been manually edited
+      if (!sqlManuallyEdited && (!sqlQuery || sqlQuery.trim() === '')) {
+        setValue('sql_query', 'select * from file');
+        setPreviewData(null);
+        setPreviewError(null);
+      }
+    }
+  }, [isFileUpload, sourceConnectionId, isEditMode, sqlManuallyEdited, sqlQuery, setValue]);
+
   // Load existing mapping if mappingId is provided
   useEffect(() => {
     if (mappingId) {
@@ -470,8 +489,8 @@ export function NewMappingPage() {
                 )}
               </div>
 
-              {/* Source Table */}
-              {sourceConnectionId && (
+              {/* Source Table - Hidden for file uploads */}
+              {sourceConnectionId && !isFileUpload && (
                 <div>
                   <Label htmlFor="source_table" className="text-neutral-700 text-xs">
                     Source Table <span className="text-neutral-400 text-xs">(Optional)</span>
