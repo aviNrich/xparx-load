@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Alert } from '../components/ui/alert';
@@ -28,7 +28,7 @@ const SchemaPreviewPage = () => {
   const [schemas, setSchemas] = useState<TableSchema[]>([]);
   const [schemasLoading, setSchemasLoading] = useState(false);
   const [selectedFilterColumns, setSelectedFilterColumns] = useState<string[]>([]);
-
+  const navigate = useNavigate();
   // Fetch data
   const fetchData = async (currentPage: number = 0, currentFilters: Record<string, string> = {}) => {
     if (!tableName) return;
@@ -85,7 +85,7 @@ const SchemaPreviewPage = () => {
       // Redirect to first schema if no table specified
       navigate(`/schema/preview/${schemas[0].name}`, { replace: true });
     }
-  }, [tableName, schemas, navigate]);
+  }, [tableName, schemas]);
 
   useEffect(() => {
     if (tableName) {
