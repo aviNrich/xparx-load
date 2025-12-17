@@ -19,12 +19,16 @@ class PyObjectId(ObjectId):
 
 class ConnectionBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    db_type: Literal["mysql", "postgresql"]
-    host: str = Field(..., min_length=1)
-    port: int = Field(..., ge=1, le=65535)
-    database: str = Field(..., min_length=1)
-    username: str = Field(..., min_length=1)
-    password: str = Field(..., min_length=1)
+    db_type: Literal["mysql", "postgresql", "file"]
+    # Database connection fields (optional for file type)
+    host: Optional[str] = None
+    port: Optional[int] = None
+    database: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    # File connection fields
+    file_type: Optional[Literal["csv", "json", "excel"]] = None
+    file_paths: Optional[list[str]] = None
 
     @field_validator('port')
     @classmethod
@@ -45,12 +49,14 @@ class ConnectionCreate(ConnectionBase):
 
 class ConnectionUpdate(BaseModel):
     name: Optional[str] = None
-    db_type: Optional[Literal["mysql", "postgresql"]] = None
+    db_type: Optional[Literal["mysql", "postgresql", "file"]] = None
     host: Optional[str] = None
     port: Optional[int] = None
     database: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
+    file_type: Optional[Literal["csv", "json", "excel"]] = None
+    file_paths: Optional[list[str]] = None
 
 
 class ConnectionResponse(ConnectionBase):

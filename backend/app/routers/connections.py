@@ -1,6 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from pymongo.database import Database
+from bson import ObjectId
 from typing import List
+import os
+import shutil
+from pathlib import Path
 from ..database import get_database
 from ..schemas.connection import (
     ConnectionCreate, ConnectionUpdate, ConnectionResponse,
@@ -121,3 +125,58 @@ def test_existing_connection(
         return result
     except ConnectionNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/upload", response_model=ConnectionResponse, status_code=status.HTTP_201_CREATED)
+async def upload_files(
+    name: str = Form(...),
+    file_type: str = Form(...),
+    files: List[UploadFile] = File(...),
+    service: ConnectionService = Depends(get_connection_service),
+    db: Database = Depends(get_database)
+):
+    """Upload files and create a file-based connection"""
+    file_paths = []
+    try:
+        # Validate file type
+        if file_type not in ["csv", "json", "excel"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file_type: {file_type}"
+            )
+
+        # Create upload directory
+        upload_dir = Path("/tmp/uploaded-files")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save uploaded files
+        for file in files:
+            # Generate unique filename
+            file_id = str(ObjectId())
+            file_extension = Path(file.filename).suffix
+            file_path = upload_dir / f"{file_id}{file_extension}"
+
+            # Save file
+            with file_path.open("wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            file_paths.append(str(file_path))
+
+        # Create connection object
+        connection_data = ConnectionCreate(
+            name=name,
+            db_type="file",
+            file_type=file_type,
+            file_paths=file_paths
+        )
+
+        return service.create_connection(connection_data)
+
+    except DuplicateConnectionError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except Exception as e:
+        # Clean up uploaded files on error
+        for path in file_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

@@ -53,6 +53,34 @@ export const connectionAPI = {
     const response = await api.post<TestConnectionResult>(`/connections/${id}/test`);
     return response.data;
   },
+
+  // Upload files
+  uploadFiles: async (
+    name: string,
+    fileType: string,
+    files: File[],
+    onProgress?: (progress: number) => void
+  ): Promise<Connection> => {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('file_type', fileType);
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    const response = await api.post<Connection>('/connections/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
+    });
+    return response.data;
+  },
 };
 
 export const schemaAPI = {

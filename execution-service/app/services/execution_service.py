@@ -237,42 +237,75 @@ class ExecutionService:
         }
 
     def _extract_source_data(self, config: Dict[str, Any]) -> DataFrame:
-        """Extract data from source database using Spark JDBC for distributed loading"""
+        """Extract data from source (database or file) using Spark for distributed loading"""
         connection = config["connection"]
         mapping = config["mapping"]
+        db_type = connection["db_type"]
 
         try:
-            # Build JDBC connection properties
-            db_type = connection["db_type"]
-            username = connection["username"]
-            password = decrypt_password(connection["password"])
-            host = connection["host"]
-            port = connection["port"]
-            database = connection["database"]
-
-            if db_type == "mysql":
-                jdbc_url = f"jdbc:mysql://{host}:{port}/{database}"
-                driver = "com.mysql.cj.jdbc.Driver"
-            elif db_type == "postgresql":
-                jdbc_url = f"jdbc:postgresql://{host}:{port}/{database}"
-                driver = "org.postgresql.Driver"
-            else:
-                raise SourceConnectionError(f"Unsupported database type: {db_type}")
-
             # Get Spark session
             spark = get_spark_session()
 
-            # Read using Spark JDBC with query pushdown
-            df = spark.read \
-                .format("jdbc") \
-                .option("url", jdbc_url) \
-                .option("query", mapping["sql_query"]) \
-                .option("user", username) \
-                .option("password", password) \
-                .option("driver", driver) \
-                .option("fetchsize", "10000") \
-                .option("numPartitions", "4") \
-                .load()
+            if db_type in ["mysql", "postgresql"]:
+                # Database source - use JDBC
+                username = connection["username"]
+                password = decrypt_password(connection["password"])
+                host = connection["host"]
+                port = connection["port"]
+                database = connection["database"]
+
+                if db_type == "mysql":
+                    jdbc_url = f"jdbc:mysql://{host}:{port}/{database}"
+                    driver = "com.mysql.cj.jdbc.Driver"
+                elif db_type == "postgresql":
+                    jdbc_url = f"jdbc:postgresql://{host}:{port}/{database}"
+                    driver = "org.postgresql.Driver"
+
+                # Read using Spark JDBC with query pushdown
+                df = spark.read \
+                    .format("jdbc") \
+                    .option("url", jdbc_url) \
+                    .option("query", mapping["sql_query"]) \
+                    .option("user", username) \
+                    .option("password", password) \
+                    .option("driver", driver) \
+                    .option("fetchsize", "10000") \
+                    .option("numPartitions", "4") \
+                    .load()
+
+            elif db_type == "file":
+                # File source - load files and execute SQL
+                file_type = connection.get("file_type", "csv")
+                file_paths = connection.get("file_paths", [])
+
+                if not file_paths:
+                    raise SourceConnectionError("No files found in connection")
+
+                # Read all files based on file type
+                from functools import reduce
+                if file_type == "csv":
+                    dfs = [spark.read.csv(fp, header=True, inferSchema=True) for fp in file_paths]
+                elif file_type == "json":
+                    dfs = [spark.read.json(fp) for fp in file_paths]
+                elif file_type == "excel":
+                    dfs = [spark.read.format("com.crealytics.spark.excel")
+                          .option("header", "true")
+                          .option("inferSchema", "true")
+                          .load(fp) for fp in file_paths]
+                else:
+                    raise SourceConnectionError(f"Unsupported file type: {file_type}")
+
+                # Union all dataframes if multiple files
+                df = dfs[0] if len(dfs) == 1 else reduce(lambda a, b: a.union(b), dfs)
+
+                # Create temp view named "file"
+                df.createOrReplaceTempView("file")
+
+                # Execute SQL query
+                df = spark.sql(mapping["sql_query"])
+
+            else:
+                raise SourceConnectionError(f"Unsupported connection type: {db_type}")
 
             return df
 

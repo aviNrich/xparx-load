@@ -1,24 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ConnectionFormData, TestConnectionResult, DatabaseType } from '../../types/connection';
+import { ConnectionFormData, TestConnectionResult, DatabaseType, FileType } from '../../types/connection';
 import { connectionAPI } from '../../services/api';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Loader2, CheckCircle, XCircle, Wifi } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Wifi, Upload, X, FileText } from 'lucide-react';
 
 const connectionSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  db_type: z.enum(['mysql', 'postgresql']),
-  host: z.string().min(1, 'Host is required'),
-  port: z.number().min(1).max(65535),
-  database: z.string().min(1, 'Database name is required'),
-  username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
+  db_type: z.enum(['mysql', 'postgresql', 'file']),
+  host: z.string().optional(),
+  port: z.number().optional(),
+  database: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  file_type: z.enum(['csv', 'json', 'excel']).optional(),
 });
 
 interface ConnectionFormProps {
@@ -32,6 +33,9 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   const {
     register,
@@ -49,10 +53,12 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
       database: '',
       username: '',
       password: '',
+      file_type: 'csv',
     },
   });
 
   const dbType = watch('db_type');
+  const fileType = watch('file_type');
 
   // Update port when db_type changes
   useEffect(() => {
@@ -82,20 +88,94 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
   };
 
   const handleFormSubmit = async (data: ConnectionFormData) => {
-    if (!testResult?.success) {
-      setTestResult({
-        success: false,
-        message: 'Please test the connection before saving',
-      });
-      return;
-    }
+    // For file type, validate files are selected
+    if (data.db_type === 'file') {
+      if (selectedFiles.length === 0) {
+        setTestResult({
+          success: false,
+          message: 'Please select at least one file to upload',
+        });
+        return;
+      }
 
-    setIsSubmitting(true);
-    try {
-      await onSubmit(data);
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(true);
+      try {
+        console.log('Uploading files:', { name: data.name, fileType: data.file_type, files: selectedFiles });
+        // Upload files - this creates the connection directly
+        const result = await connectionAPI.uploadFiles(
+          data.name,
+          data.file_type || 'csv',
+          selectedFiles,
+          (progress) => setUploadProgress(progress)
+        );
+        console.log('Upload successful:', result);
+        // Trigger navigation by calling onCancel (which navigates back)
+        onCancel();
+      } catch (error) {
+        console.error('Upload failed:', error);
+        setTestResult({
+          success: false,
+          message: error instanceof Error ? error.message : 'Failed to upload files',
+        });
+      } finally {
+        setIsSubmitting(false);
+        setUploadProgress(0);
+      }
+    } else {
+      // Database type - require test connection
+      if (!testResult?.success) {
+        setTestResult({
+          success: false,
+          message: 'Please test the connection before saving',
+        });
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        await onSubmit(data);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
+  };
+
+  // File drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    setSelectedFiles((prev) => [...prev, ...files]);
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...files]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -112,7 +192,7 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
       </div>
 
       <div>
-        <Label htmlFor="db_type" className="text-neutral-700">Database Type</Label>
+        <Label htmlFor="db_type" className="text-neutral-700">Source Type</Label>
         <Select
           value={dbType}
           onValueChange={(value) => setValue('db_type', value as DatabaseType)}
@@ -123,68 +203,176 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
           <SelectContent>
             <SelectItem value="mysql">MySQL</SelectItem>
             <SelectItem value="postgresql">PostgreSQL</SelectItem>
+            <SelectItem value="file">File Upload</SelectItem>
           </SelectContent>
         </Select>
         {errors.db_type && <p className="text-sm text-red-500 mt-1">{errors.db_type.message}</p>}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="host" className="text-neutral-700">Host</Label>
-          <Input
-            id="host"
-            {...register('host')}
-            placeholder="localhost"
-            className="mt-1.5"
-          />
-          {errors.host && <p className="text-sm text-red-500 mt-1">{errors.host.message}</p>}
-        </div>
+      {dbType === 'file' ? (
+        <>
+          <div>
+            <Label htmlFor="file_type" className="text-neutral-700">File Type</Label>
+            <Select
+              value={fileType}
+              onValueChange={(value) => setValue('file_type', value as FileType)}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">CSV</SelectItem>
+                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="excel">Excel</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div>
-          <Label htmlFor="port" className="text-neutral-700">Port</Label>
-          <Input
-            id="port"
-            type="number"
-            {...register('port', { valueAsNumber: true })}
-            className="mt-1.5"
-          />
-          {errors.port && <p className="text-sm text-red-500 mt-1">{errors.port.message}</p>}
-        </div>
-      </div>
+          <div>
+            <Label className="text-neutral-700">Upload Files</Label>
+            <div
+              className={`mt-1.5 border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                isDragging
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-neutral-300 hover:border-primary-400'
+              }`}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              <Upload className="mx-auto h-12 w-12 text-neutral-400 mb-3" />
+              <p className="text-sm text-neutral-600 mb-2">
+                Drag and drop files here, or click to select
+              </p>
+              <p className="text-xs text-neutral-500 mb-4">
+                Multiple files with the same structure are supported
+              </p>
+              <input
+                type="file"
+                multiple
+                accept={fileType === 'csv' ? '.csv' : fileType === 'json' ? '.json' : '.xlsx,.xls'}
+                onChange={handleFileSelect}
+                className="hidden"
+                id="file-input"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => document.getElementById('file-input')?.click()}
+              >
+                Select Files
+              </Button>
+            </div>
+          </div>
 
-      <div>
-        <Label htmlFor="database" className="text-neutral-700">Database</Label>
-        <Input
-          id="database"
-          {...register('database')}
-          placeholder="my_database"
-          className="mt-1.5"
-        />
-        {errors.database && <p className="text-sm text-red-500 mt-1">{errors.database.message}</p>}
-      </div>
+          {selectedFiles.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-neutral-700">Selected Files ({selectedFiles.length})</Label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg border border-neutral-200"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <FileText className="h-4 w-4 text-neutral-500 flex-shrink-0" />
+                      <span className="text-sm text-neutral-700 truncate">{file.name}</span>
+                      <span className="text-xs text-neutral-500">
+                        ({(file.size / 1024).toFixed(1)} KB)
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="ml-2"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-      <div>
-        <Label htmlFor="username" className="text-neutral-700">Username</Label>
-        <Input
-          id="username"
-          {...register('username')}
-          placeholder="db_user"
-          className="mt-1.5"
-        />
-        {errors.username && <p className="text-sm text-red-500 mt-1">{errors.username.message}</p>}
-      </div>
+          {isSubmitting && uploadProgress > 0 && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-neutral-600">
+                <span>Uploading files...</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-neutral-200 rounded-full h-2">
+                <div
+                  className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="host" className="text-neutral-700">Host</Label>
+              <Input
+                id="host"
+                {...register('host')}
+                placeholder="localhost"
+                className="mt-1.5"
+              />
+              {errors.host && <p className="text-sm text-red-500 mt-1">{errors.host.message}</p>}
+            </div>
 
-      <div>
-        <Label htmlFor="password" className="text-neutral-700">Password</Label>
-        <Input
-          id="password"
-          type="password"
-          {...register('password')}
-          placeholder="••••••••"
-          className="mt-1.5"
-        />
-        {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>}
-      </div>
+            <div>
+              <Label htmlFor="port" className="text-neutral-700">Port</Label>
+              <Input
+                id="port"
+                type="number"
+                {...register('port', { valueAsNumber: true })}
+                className="mt-1.5"
+              />
+              {errors.port && <p className="text-sm text-red-500 mt-1">{errors.port.message}</p>}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="database" className="text-neutral-700">Database</Label>
+            <Input
+              id="database"
+              {...register('database')}
+              placeholder="my_database"
+              className="mt-1.5"
+            />
+            {errors.database && <p className="text-sm text-red-500 mt-1">{errors.database.message}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="username" className="text-neutral-700">Username</Label>
+            <Input
+              id="username"
+              {...register('username')}
+              placeholder="db_user"
+              className="mt-1.5"
+            />
+            {errors.username && <p className="text-sm text-red-500 mt-1">{errors.username.message}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="password" className="text-neutral-700">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              {...register('password')}
+              placeholder="••••••••"
+              className="mt-1.5"
+            />
+            {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>}
+          </div>
+        </>
+      )}
 
       {testResult && (
         <Alert variant={testResult.success ? 'success' : 'destructive'} className="animate-in fade-in duration-300">
@@ -204,35 +392,50 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
         </Alert>
       )}
 
-      <div className="flex gap-3 pt-4 border-t border-neutral-200">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleTestConnection}
-          disabled={isTesting}
-          className="flex-1"
-        >
-          {isTesting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Testing...
-            </>
-          ) : (
-            <>
-              <Wifi className="mr-2 h-4 w-4" />
-              Test Connection
-            </>
-          )}
-        </Button>
+      <div className="flex gap-3 pt-4 border-t border-neutral-200 bg-white">
+        {dbType === 'file' && (
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
+          >
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Upload Files
+          </Button>
+        )}
 
-        <Button
-          type="submit"
-          disabled={!testResult?.success || isSubmitting}
-          className="flex-1 bg-primary-600 hover:bg-primary-700"
-        >
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isEdit ? 'Update' : 'Create'} Connection
-        </Button>
+        {dbType !== 'file' && (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleTestConnection}
+              disabled={isTesting}
+              className="flex-1"
+            >
+              {isTesting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Wifi className="mr-2 h-4 w-4" />
+                  Test Connection
+                </>
+              )}
+            </Button>
+
+            <Button
+              type="submit"
+              disabled={!testResult?.success || isSubmitting}
+              className="flex-1 bg-primary-600 hover:bg-primary-700"
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEdit ? 'Update' : 'Create'} Connection
+            </Button>
+          </>
+        )}
 
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel

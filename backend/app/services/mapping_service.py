@@ -4,6 +4,8 @@ from sqlalchemy import create_engine, text, inspect
 from typing import List, Optional
 from datetime import datetime
 import re
+import os
+import httpx
 from ..schemas.mapping import (
     TableInfoResponse,
     SqlPreviewRequest,
@@ -122,7 +124,7 @@ class MappingService:
             raise Exception(f"Failed to list tables: {str(e)}")
 
     def preview_sql_query(self, request: SqlPreviewRequest, limit: int = 100) -> SqlPreviewResponse:
-        """Execute SQL query and return preview results"""
+        """Execute SQL query and return preview results (proxies to execution service for unified Spark preview)"""
         # Get connection from database
         if not ObjectId.is_valid(request.connection_id):
             raise ConnectionNotFoundError(f"Invalid connection ID: {request.connection_id}")
@@ -137,36 +139,30 @@ class MappingService:
             if not query_upper.startswith("SELECT"):
                 raise ValueError("Only SELECT queries are allowed")
 
-            # Add LIMIT clause if not present
-            modified_query = self._add_limit_to_query(request.sql_query, limit)
+            # Use execution service for unified Spark preview (works for both DB and file sources)
+            execution_service_url = os.getenv("EXECUTION_SERVICE_URL", "http://localhost:8001/api/v1")
 
-            connection_string = self._build_connection_string(connection)
-            engine = create_engine(
-                connection_string,
-                connect_args={"connect_timeout": 5},
-                pool_pre_ping=True,
-                execution_options={"timeout": 5}  # 5 second query timeout
-            )
-
-            with engine.connect() as conn:
-                result = conn.execute(text(modified_query))
-
-                # Get column names
-                columns = list(result.keys())
-
-                # Fetch rows
-                rows = []
-                for row in result:
-                    rows.append([self._format_cell_value(val) for val in row])
-
-            engine.dispose()
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    f"{execution_service_url}/preview/",
+                    json={
+                        "connection_id": request.connection_id,
+                        "sql_query": request.sql_query,
+                        "limit": limit
+                    }
+                )
+                response.raise_for_status()
+                result = response.json()
 
             return SqlPreviewResponse(
-                columns=columns,
-                rows=rows,
-                row_count=len(rows)
+                columns=result["columns"],
+                rows=result["rows"],
+                row_count=result["row_count"]
             )
 
+        except httpx.HTTPStatusError as e:
+            error_detail = e.response.json().get("detail", str(e))
+            raise Exception(f"Failed to execute query: {error_detail}")
         except Exception as e:
             raise Exception(f"Failed to execute query: {str(e)}")
 

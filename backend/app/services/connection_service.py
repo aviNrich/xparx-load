@@ -14,9 +14,10 @@ class ConnectionService:
 
     def create_connection(self, connection: ConnectionCreate) -> ConnectionResponse:
         """Create a new connection"""
-        # Encrypt password
+        # Encrypt password (only for database connections)
         connection_dict = connection.model_dump()
-        connection_dict["password"] = encrypt_password(connection_dict["password"])
+        if connection_dict.get("password"):
+            connection_dict["password"] = encrypt_password(connection_dict["password"])
 
         # Add timestamps
         now = datetime.utcnow()
@@ -67,8 +68,8 @@ class ConnectionService:
         if not update_dict:
             return self.get_connection(connection_id)
 
-        # Encrypt password if provided
-        if "password" in update_dict:
+        # Encrypt password if provided and not None
+        if "password" in update_dict and update_dict["password"]:
             update_dict["password"] = encrypt_password(update_dict["password"])
 
         update_dict["updated_at"] = datetime.utcnow()

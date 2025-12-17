@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .database import connect_to_mongo, close_mongo_connection
-from .routers import executions, delta_tables, mapping_runs
+from .routers import executions, delta_tables, mapping_runs, preview
 from .config import get_settings
 
 settings = get_settings()
@@ -38,6 +38,7 @@ app.add_middleware(
 app.include_router(executions.router, prefix=settings.api_v1_prefix)
 app.include_router(delta_tables.router, prefix=settings.api_v1_prefix)
 app.include_router(mapping_runs.router, prefix=settings.api_v1_prefix)
+app.include_router(preview.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health")
