@@ -125,7 +125,7 @@ class TargetExecutionService:
         # Path format: /path/to/delta-lake/schema_name
         return delta_table_path.rstrip("/").split("/")[-1]
 
-    def get_pg_writer(self, df, target_db_config, table_name):
+    def get_pg_writer(self, df, target_db_config, table_name, mode="append"):
         jdbc_url = (
             f"jdbc:postgresql://{target_db_config['host']}:{target_db_config['port']}"
             f"/{target_db_config['database']}"
@@ -139,7 +139,7 @@ class TargetExecutionService:
             .option("password", target_db_config["password"])
             .option("driver", "org.postgresql.Driver")
             .option("stringtype", "unspecified")
-            .mode("append")
+            .mode(mode)
         )
 
     def _write_to_target_db(
@@ -160,6 +160,15 @@ class TargetExecutionService:
 
             res["df"].show(5, truncate=False)
             w = Window.partitionBy("poi_id").orderBy("id")
+
+            if "related_df" in res:
+                res["related_df"].printSchema()
+                res["related_df"].explain(True)
+
+                related_writer = self.get_pg_writer(
+                    res["related_df"], target_db_config, res["related_table"], "ignore"
+                )
+                related_writer.save()
 
             poi_df = (
                 res["df"]

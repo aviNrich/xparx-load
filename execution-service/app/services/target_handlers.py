@@ -15,6 +15,31 @@ class TargetHandlers:
     """
 
     @staticmethod
+    def interests_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
+        logger.info("Applying transformations")
+        pg_df = df.select(
+            TargetHandlers.poi_id_col(context).alias("entity_id"),
+            TargetHandlers.value_id_col("interest_name").alias("interest_id"),
+            TargetHandlers.source_id_col(context),
+            TargetHandlers.source_item_id_col(),
+            TargetHandlers.id_col(),
+        )
+        pg_df = pg_df = pg_df.withColumn("entity_type", F.lit("PoI"))
+
+        related_df = df.select(  # interest
+            TargetHandlers.value_id_col("interest_name").alias("id"),
+            df.interest_name.alias("interest_name"),
+        ).distinct()
+
+        return {
+            "df": pg_df,
+            "related_df": related_df,
+            "related_table": "interest",
+            "table_name": "interest_to_entities",
+            "primary_col": "primary_name",
+        }
+
+    @staticmethod
     def names_handler(df: DataFrame, context: Dict[str, Any]) -> DataFrame:
         logger.info("Applying transformations")
         pg_df = df.select(
@@ -23,7 +48,7 @@ class TargetHandlers:
             TargetHandlers.source_id_col(context),
             TargetHandlers.source_item_id_col(),
             TargetHandlers.id_col(),
-            TargetHandlers.poi_id_col(context),
+            TargetHandlers.poi_id_col(context).alias("poi_id"),
         )
 
         return {"df": pg_df, "table_name": "name_to_poi", "primary_col": "primary_name"}
@@ -36,7 +61,7 @@ class TargetHandlers:
             TargetHandlers.source_id_col(context),
             TargetHandlers.source_item_id_col(),
             TargetHandlers.id_col(),
-            TargetHandlers.poi_id_col(context),
+            TargetHandlers.poi_id_col(context).alias("poi_id"),
         )
 
         return {"df": pg_df, "table_name": "gender", "primary_col": "primary_gender"}
@@ -45,7 +70,7 @@ class TargetHandlers:
     def poi_id_col(context):
         return uuidv5_udf(
             F.concat(F.col("entity_root_id"), F.lit(context["source_id"]))
-        ).alias("poi_id")
+        )
 
     @staticmethod
     def source_id_col(context):
@@ -56,6 +81,10 @@ class TargetHandlers:
     @staticmethod
     def id_col():
         return F.expr("uuid()").alias("id")
+
+    @staticmethod
+    def value_id_col(col: str):
+        return uuidv5_udf(F.col(col))
 
     @staticmethod
     def source_item_id_col():
