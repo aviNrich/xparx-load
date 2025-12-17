@@ -27,7 +27,7 @@ class TargetExecutionService:
 
         Args:
             context: Dictionary containing:
-                - execution_id: Execution ID
+                - run_id: Run ID
                 - mapping_id: Mapping ID
                 - status: Execution status
                 - rows_written: Number of rows written to Delta
@@ -37,14 +37,14 @@ class TargetExecutionService:
         Returns:
             Dictionary with execution results
         """
-        execution_id = context["execution_id"]
+        run_id = context["run_id"]
         mapping_id = context["mapping_id"]
         delta_table_path = context["delta_table_path"]
 
         try:
-            # Step 1: Read data from Delta table
-            logger.info(f"Reading Delta table from {delta_table_path}")
-            df = self._read_delta_table(delta_table_path)
+            # Step 1: Read data from Delta table filtered by run_id
+            logger.info(f"Reading Delta table from {delta_table_path} for run_id: {run_id}")
+            df = self._read_delta_table(delta_table_path, run_id)
 
             # Step 2: Get target database settings from backend
             logger.info("Fetching target database settings")
@@ -69,7 +69,7 @@ class TargetExecutionService:
             logger.info(f"Successfully wrote {rows_written} rows to target database")
 
             return {
-                "execution_id": execution_id,
+                "run_id": run_id,
                 "mapping_id": mapping_id,
                 "status": "success",
                 "rows_written_to_target": rows_written,
@@ -80,7 +80,7 @@ class TargetExecutionService:
         except Exception as e:
             logger.error(f"Target execution failed: {str(e)}")
             return {
-                "execution_id": execution_id,
+                "run_id": run_id,
                 "mapping_id": mapping_id,
                 "status": "failed",
                 "rows_written_to_target": 0,
@@ -88,9 +88,11 @@ class TargetExecutionService:
                 "error_message": str(e),
             }
 
-    def _read_delta_table(self, delta_table_path: str) -> DataFrame:
-        """Read data from Delta table"""
+    def _read_delta_table(self, delta_table_path: str, run_id: str) -> DataFrame:
+        """Read data from Delta table filtered by run_id"""
         df = self.spark.read.format("delta").load(delta_table_path)
+        # Filter by run_id to only get data from this specific run
+        df = df.filter(F.col("run_id") == run_id)
         return df
 
     def _get_target_db_settings(self) -> Dict[str, Any]:

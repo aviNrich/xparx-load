@@ -30,7 +30,11 @@ async def run_execution(
     If execution fails, the response will include an error_message and status="failed".
     Delta Lake's ACID properties ensure no partial writes occur on failure.
     """
-    result = service.execute_mapping(request.mapping_id)
+    result = service.execute_mapping(
+        mapping_id=request.mapping_id,
+        trigger_type=request.trigger_type,
+        schedule_id=request.schedule_id
+    )
     return ExecutionResponse(**result)
 
 

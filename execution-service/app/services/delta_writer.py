@@ -91,6 +91,7 @@ def create_spark_schema(
 
     # Add metadata columns
     fields.append(StructField("mapping_id", StringType(), nullable=False))
+    fields.append(StructField("run_id", StringType(), nullable=False))
     fields.append(StructField("execution_time", StringType(), nullable=False))
 
     return StructType(fields)
@@ -119,6 +120,7 @@ def clean_data_for_schema(
             # Skip metadata fields, they'll be handled separately
             if key in [
                 "mapping_id",
+                "run_id",
                 "execution_time",
                 "source_id",
                 "entity_root_id",
@@ -225,6 +227,7 @@ def clean_data_for_schema_spark(
     # Metadata columns to preserve as-is
     metadata_columns = [
         "mapping_id",
+        "run_id",
         "execution_time",
         "source_id",
         "entity_root_id",
@@ -298,6 +301,7 @@ def write_to_delta_lake(
     schema_name: str,
     schema_fields: List[Dict[str, str]],
     mapping_id: str,
+    run_id: str,
     execution_time: str,
 ) -> tuple[str, int]:
     """
@@ -308,6 +312,7 @@ def write_to_delta_lake(
         schema_name: Name of the target schema (used as table name)
         schema_fields: Target schema field definitions
         mapping_id: Mapping ID for metadata
+        run_id: Run ID for tracking this specific execution
         execution_time: Execution timestamp for metadata
 
     Returns:
@@ -322,6 +327,7 @@ def write_to_delta_lake(
 
         # Add metadata columns using withColumn
         df = df.withColumn("mapping_id", F.lit(mapping_id))
+        df = df.withColumn("run_id", F.lit(run_id))
         df = df.withColumn("execution_time", F.lit(execution_time))
 
         # Add source_id from entity_id if present
