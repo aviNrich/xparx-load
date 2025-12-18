@@ -270,68 +270,40 @@ export function ColumnMappingPage() {
 
   return (
     <div className="h-screen flex flex-col bg-neutral-50">
-      {/* Header - Fixed */}
-      <div className="bg-white border-b border-neutral-200 flex-shrink-0">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
+      {/* Header - Fixed with better visual hierarchy */}
+      <div className="bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 border-b border-indigo-200 flex-shrink-0 shadow-md">
+        <div className="px-6 py-5">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={handleBack} className="gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="gap-2 text-neutral-800 hover:bg-white/70"
+              >
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </Button>
               <div>
-                <h1 className="text-xl font-bold text-neutral-900">Column Mapping</h1>
+                <h1 className="text-2xl font-bold text-neutral-900">Column Mapping</h1>
                 {mapping && (
-                  <p className="text-xs text-neutral-500">
-                    Mapping: {mapping.name}
+                  <p className="text-sm text-neutral-700 mt-0.5">
+                    Step 2: Map source columns to target ontology fields
                   </p>
                 )}
               </div>
             </div>
-
-            {/* Action Buttons in Header */}
-            <div className="flex gap-2">
-              <Button
-                asChild
-                type="button"
-                variant="outline"
-                size="sm"
-              >
-                <Link to="/mappings">
-                  Cancel
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={saving || schemaConfigs.length === 0}
-                size="sm"
-                className="bg-primary-500 hover:bg-primary-600"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-3 w-3 mr-2" />
-                    Next: Schedule
-                  </>
-                )}
-              </Button>
-            </div>
           </div>
-        </div>
 
-        {/* Stepper - Full Width Below Header */}
-        <div className="px-6 pb-4">
-          <Stepper steps={WIZARD_STEPS} currentStep={2} />
+          {/* Stepper - Integrated into colored header */}
+          <div className="mt-4">
+            <Stepper steps={WIZARD_STEPS} currentStep={2} variant="light" />
+          </div>
         </div>
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto pb-20">
         <div className="max-w-6xl mx-auto px-6 py-6">
           {loading ? (
             <div className="flex justify-center items-center py-24">
@@ -450,6 +422,53 @@ export function ColumnMappingPage() {
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Fixed Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 shadow-lg z-10">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="default"
+            onClick={handleBack}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Previous: Source Preview
+          </Button>
+
+          <div className="flex items-center gap-3">
+            <Button
+              asChild
+              type="button"
+              variant="outline"
+              size="default"
+            >
+              <Link to="/mappings">
+                Cancel
+              </Link>
+            </Button>
+
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || schemaConfigs.length === 0}
+              size="default"
+              className="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Next: Schedule & Execute
+                  <ArrowLeft className="ml-2 h-4 w-4 rotate-180" />
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

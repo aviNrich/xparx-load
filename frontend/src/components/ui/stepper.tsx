@@ -12,9 +12,12 @@ interface StepperProps {
   steps: Step[];
   currentStep: number;
   className?: string;
+  variant?: 'light' | 'dark';
 }
 
-export function Stepper({ steps, currentStep, className }: StepperProps) {
+export function Stepper({ steps, currentStep, className, variant = 'light' }: StepperProps) {
+  const isDark = variant === 'dark';
+
   return (
     <div className={cn('flex items-center justify-between', className)}>
       {steps.map((step, index) => {
@@ -30,10 +33,13 @@ export function Stepper({ steps, currentStep, className }: StepperProps) {
               {/* Circle Indicator */}
               <div
                 className={cn(
-                  'flex items-center justify-center w-10 h-10 rounded-full font-semibold text-sm transition-colors',
-                  isCompleted && 'bg-green-500 text-white',
-                  isCurrent && 'bg-primary-500 text-white',
-                  isPending && 'bg-neutral-200 text-neutral-500'
+                  'flex items-center justify-center w-10 h-10 rounded-full font-semibold text-sm transition-colors border-2',
+                  isCompleted && !isDark && 'bg-green-500 text-white border-green-500',
+                  isCompleted && isDark && 'bg-white text-green-600 border-white',
+                  isCurrent && !isDark && 'bg-primary-500 text-white border-primary-500',
+                  isCurrent && isDark && 'bg-white text-primary-600 border-white',
+                  isPending && !isDark && 'bg-neutral-200 text-neutral-500 border-neutral-200',
+                  isPending && isDark && 'bg-primary-500/20 text-white border-primary-400/40'
                 )}
               >
                 {isCompleted ? (
@@ -48,14 +54,27 @@ export function Stepper({ steps, currentStep, className }: StepperProps) {
                 <div
                   className={cn(
                     'text-sm font-semibold',
-                    isCurrent && 'text-neutral-900',
-                    (isCompleted || isPending) && 'text-neutral-600'
+                    isCurrent && !isDark && 'text-neutral-900',
+                    isCurrent && isDark && 'text-white',
+                    isCompleted && !isDark && 'text-neutral-600',
+                    isCompleted && isDark && 'text-primary-100',
+                    isPending && !isDark && 'text-neutral-600',
+                    isPending && isDark && 'text-primary-200/60'
                   )}
                 >
                   {step.label}
                 </div>
                 {step.description && (
-                  <div className="text-xs text-neutral-500">{step.description}</div>
+                  <div
+                    className={cn(
+                      'text-xs mt-0.5',
+                      !isDark && 'text-neutral-500',
+                      isDark && isCurrent && 'text-primary-100',
+                      isDark && !isCurrent && 'text-primary-200/50'
+                    )}
+                  >
+                    {step.description}
+                  </div>
                 )}
               </div>
             </div>
@@ -66,7 +85,10 @@ export function Stepper({ steps, currentStep, className }: StepperProps) {
                 <div
                   className={cn(
                     'h-0.5 transition-colors',
-                    isCompleted ? 'bg-green-500' : 'bg-neutral-200'
+                    isCompleted && !isDark && 'bg-green-500',
+                    isCompleted && isDark && 'bg-white/60',
+                    !isCompleted && !isDark && 'bg-neutral-200',
+                    !isCompleted && isDark && 'bg-primary-400/30'
                   )}
                 />
               </div>

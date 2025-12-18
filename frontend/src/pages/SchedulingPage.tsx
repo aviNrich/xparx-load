@@ -232,46 +232,44 @@ export function SchedulingPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white">
-      {/* Header */}
-      <div className="border-b border-neutral-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <Button
-            asChild
-            variant="ghost"
-            className="flex items-center gap-2"
-          >
-            <Link to="/mappings">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Mappings
-            </Link>
-          </Button>
-          <h1 className="text-xl font-semibold">ETL Mapping Wizard</h1>
-        </div>
-
-        {/* Progress Stepper */}
-        <Stepper steps={WIZARD_STEPS} currentStep={2} />
-
-        {/* Mapping Info */}
-        {mapping && (
-          <div className="mt-4 p-3 bg-neutral-50 rounded-md">
-            <div className="flex items-center justify-between text-sm">
+    <div className="h-screen flex flex-col bg-neutral-50">
+      {/* Header - Fixed with better visual hierarchy */}
+      <div className="bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 border-b border-indigo-200 flex-shrink-0 shadow-md">
+        <div className="px-6 py-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-neutral-800 hover:bg-white/70"
+              >
+                <Link to="/mappings">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Link>
+              </Button>
               <div>
-                <span className="text-neutral-600">Mapping: </span>
-                <span className="font-medium text-neutral-900">{mapping.name}</span>
+                <h1 className="text-2xl font-bold text-neutral-900">Schedule & Execute</h1>
+                {mapping && (
+                  <p className="text-sm text-neutral-700 mt-0.5">
+                    Step 3: Configure execution schedule for {mapping.name}
+                  </p>
+                )}
               </div>
             </div>
           </div>
-        )}
+
+          {/* Stepper - Integrated into colored header */}
+          <div className="mt-4">
+            <Stepper steps={WIZARD_STEPS} currentStep={3} variant="light" />
+          </div>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto pb-20 p-6">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold text-neutral-900 mb-2">Schedule & Execute</h2>
-          <p className="text-neutral-600 mb-6">
-            Configure when this mapping should run
-          </p>
 
           {error && (
             <Alert className="mb-6 bg-red-50 border-red-200">
@@ -569,36 +567,52 @@ export function SchedulingPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="border-t border-neutral-200 px-6 py-4 bg-white">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
+      {/* Fixed Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 shadow-lg z-10">
+        <div className="px-6 py-4 flex items-center justify-between">
           <Button
             asChild
             variant="outline"
+            size="default"
             disabled={saving}
           >
             <Link to={`/mappings/${mappingId}/columns`}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              Previous: Column Mapping
             </Link>
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-primary-500 hover:bg-primary-600 text-white"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Finish
-              </>
-            )}
-          </Button>
+
+          <div className="flex items-center gap-3">
+            <Button
+              asChild
+              type="button"
+              variant="outline"
+              size="default"
+            >
+              <Link to="/mappings">
+                Cancel
+              </Link>
+            </Button>
+
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              size="default"
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Complete Setup
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

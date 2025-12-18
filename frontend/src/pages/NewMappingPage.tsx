@@ -18,7 +18,7 @@ import { SqlPreviewTable } from '../components/mappings/SqlPreviewTable';
 import { Stepper, Step } from '../components/ui/stepper';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { EntityColumnSelectionDialog } from '../components/mappings/EntityColumnSelectionDialog';
-import { ArrowLeft, Loader2, AlertCircle, Play } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Play, Save } from 'lucide-react';
 
 const mappingSchema = z.object({
   name: z.string().min(1, 'Mapping name is required').max(100, 'Name must be 100 characters or less'),
@@ -302,16 +302,16 @@ export function NewMappingPage() {
 
   return (
     <div className="h-screen flex flex-col bg-neutral-50">
-      {/* Header - Fixed */}
-      <div className="bg-white border-b border-neutral-200 flex-shrink-0">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
+      {/* Header - Fixed with better visual hierarchy */}
+      <div className="bg-gradient-to-br from-purple-400 via-purple-300 to-purple-200 border-b border-indigo-200 flex-shrink-0 shadow-md">
+        <div className="px-6 py-5">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <Button
                 asChild
                 variant="ghost"
                 size="sm"
-                className="gap-2"
+                className="gap-2 text-neutral-800 hover:bg-white/70"
               >
                 <Link to="/mappings">
                   <ArrowLeft className="h-4 w-4" />
@@ -319,112 +319,25 @@ export function NewMappingPage() {
                 </Link>
               </Button>
               <div>
-                <h1 className="text-xl font-bold text-neutral-900">
-                  {isEditMode ? 'Edit Mapping' : 'New Mapping'}
+                <h1 className="text-2xl font-bold text-neutral-900">
+                  {isEditMode ? 'Edit Mapping' : 'Create New Mapping'}
                 </h1>
-                <p className="text-xs text-neutral-500">
-                  {isEditMode ? 'Update mapping configuration' : 'Configure your data mapping'}
+                <p className="text-sm text-neutral-700 mt-0.5">
+                  Step 1: Configure source and preview data
                 </p>
               </div>
             </div>
-
-            {/* Action Buttons in Header */}
-            <div className="flex gap-2">
-              {isEditMode ? (
-                <>
-                  <Button
-                    asChild
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Link to="/mappings">
-                      Cancel
-                    </Link>
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={!previewData || isSaving}
-                    onClick={async () => {
-                      const formData = watch();
-                      setIsSaving(true);
-                      try {
-                        await mappingAPI.update(mappingId!, {
-                          name: formData.name,
-                          description: formData.description,
-                          source_connection_id: formData.source_connection_id,
-                          sql_query: formData.sql_query,
-                        });
-                      } catch (error: any) {
-                        const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to update mapping';
-                        setPreviewError(errorMessage);
-                      } finally {
-                        setIsSaving(false);
-                      }
-                    }}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save'
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="bg-primary-500 hover:bg-primary-600"
-                    onClick={handleNextClick}
-                  >
-                    Next
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    asChild
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Link to="/mappings">
-                      Cancel
-                    </Link>
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={!previewData || isSaving}
-                    size="sm"
-                    className="bg-primary-500 hover:bg-primary-600"
-                    onClick={handleSubmit(onSubmit)}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Next'
-                    )}
-                  </Button>
-                </>
-              )}
-            </div>
           </div>
-        </div>
 
-        {/* Stepper - Full Width Below Header */}
-        <div className="px-6 pb-4">
-          <Stepper steps={WIZARD_STEPS} currentStep={currentStep} />
+          {/* Stepper - Integrated into colored header */}
+          <div className="mt-4">
+            <Stepper steps={WIZARD_STEPS} currentStep={currentStep} variant="light" />
+          </div>
         </div>
       </div>
 
       {/* Main Content - 2 Column Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden pb-20">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -675,6 +588,82 @@ export function NewMappingPage() {
           </div>
         </form>
         )}
+      </div>
+
+      {/* Fixed Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 shadow-lg z-10">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <Button
+            asChild
+            type="button"
+            variant="outline"
+            size="default"
+          >
+            <Link to="/mappings">
+              Cancel
+            </Link>
+          </Button>
+
+          <div className="flex items-center gap-3">
+            {isEditMode && (
+              <Button
+                type="button"
+                size="default"
+                variant="outline"
+                disabled={!previewData || isSaving}
+                onClick={async () => {
+                  const formData = watch();
+                  setIsSaving(true);
+                  try {
+                    await mappingAPI.update(mappingId!, {
+                      name: formData.name,
+                      description: formData.description,
+                      source_connection_id: formData.source_connection_id,
+                      sql_query: formData.sql_query,
+                    });
+                  } catch (error: any) {
+                    const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to update mapping';
+                    setPreviewError(errorMessage);
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              disabled={!previewData || isSaving}
+              size="default"
+              className="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6"
+              onClick={isEditMode ? handleNextClick : handleSubmit(onSubmit)}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Next: Column Mapping
+                  <ArrowLeft className="ml-2 h-4 w-4 rotate-180" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Confirm Dialog for SQL Query Overwrite */}
