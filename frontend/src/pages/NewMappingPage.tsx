@@ -15,9 +15,9 @@ import { Textarea } from '../components/ui/textarea';
 import { Combobox, ComboboxOption } from '../components/ui/combobox';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { SqlPreviewTable } from '../components/mappings/SqlPreviewTable';
-import { Stepper, Step } from '../components/ui/stepper';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { EntityColumnSelectionDialog } from '../components/mappings/EntityColumnSelectionDialog';
+import { MappingWizardHeader } from '../components/mappings/MappingWizardHeader';
 import { ArrowLeft, Loader2, AlertCircle, Play, Save } from 'lucide-react';
 
 const mappingSchema = z.object({
@@ -26,19 +26,6 @@ const mappingSchema = z.object({
   source_connection_id: z.string().min(1, 'Source connection is required'),
   sql_query: z.string().min(1, 'SQL query is required'),
 });
-
-const WIZARD_STEPS: Step[] = [
-  {
-    id: 'source-preview',
-    label: 'Source Preview',
-    description: 'Configure source and preview data',
-  },
-  {
-    id: 'column-mapping',
-    label: 'Column Mapping',
-    description: 'Map source to target columns',
-  },
-];
 
 export function NewMappingPage() {
   const navigate = useNavigate();
@@ -303,38 +290,12 @@ export function NewMappingPage() {
   return (
     <div className="h-screen flex flex-col bg-neutral-50">
       {/* Header - Fixed with better visual hierarchy */}
-      <div className="bg-gradient-to-br from-purple-400 via-purple-300 to-purple-200 border-b border-indigo-200 flex-shrink-0 shadow-md">
-        <div className="px-6 py-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="gap-2 text-neutral-800 hover:bg-white/70"
-              >
-                <Link to="/mappings">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </Link>
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-neutral-900">
-                  {isEditMode ? 'Edit Mapping' : 'Create New Mapping'}
-                </h1>
-                <p className="text-sm text-neutral-700 mt-0.5">
-                  Step 1: Configure source and preview data
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Stepper - Integrated into colored header */}
-          <div className="mt-4">
-            <Stepper steps={WIZARD_STEPS} currentStep={currentStep} variant="light" />
-          </div>
-        </div>
-      </div>
+      <MappingWizardHeader
+        title={isEditMode ? 'Edit Mapping' : 'Create New Mapping'}
+        description="Step 1: Configure source and preview data"
+        currentStep={1}
+        backLink="/mappings"
+      />
 
       {/* Main Content - 2 Column Layout */}
       <div className="flex-1 flex overflow-hidden pb-20">

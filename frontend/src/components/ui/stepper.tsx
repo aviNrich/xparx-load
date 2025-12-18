@@ -33,13 +33,13 @@ export function Stepper({ steps, currentStep, className, variant = 'light' }: St
               {/* Circle Indicator */}
               <div
                 className={cn(
-                  'flex items-center justify-center w-10 h-10 rounded-full font-semibold text-sm transition-colors border-2',
-                  isCompleted && !isDark && 'bg-green-500 text-white border-green-500',
-                  isCompleted && isDark && 'bg-white text-green-600 border-white',
-                  isCurrent && !isDark && 'bg-primary-500 text-white border-primary-500',
-                  isCurrent && isDark && 'bg-white text-primary-600 border-white',
-                  isPending && !isDark && 'bg-neutral-200 text-neutral-500 border-neutral-200',
-                  isPending && isDark && 'bg-primary-500/20 text-white border-primary-400/40'
+                  'flex items-center justify-center w-10 h-10 rounded-full font-semibold text-sm transition-all duration-300 border-2',
+                  isCompleted && !isDark && 'bg-purple-500 text-white border-purple-500 shadow-sm',
+                  isCompleted && isDark && 'bg-white text-purple-600 border-white shadow-sm',
+                  isCurrent && !isDark && 'bg-purple-600 text-white border-purple-600 shadow-md ring-4 ring-purple-100',
+                  isCurrent && isDark && 'bg-white text-purple-600 border-white shadow-md ring-4 ring-white/20',
+                  isPending && !isDark && 'bg-white text-neutral-400 border-neutral-300',
+                  isPending && isDark && 'bg-purple-500/10 text-white/50 border-purple-400/30'
                 )}
               >
                 {isCompleted ? (
@@ -53,13 +53,13 @@ export function Stepper({ steps, currentStep, className, variant = 'light' }: St
               <div>
                 <div
                   className={cn(
-                    'text-sm font-semibold',
+                    'text-sm font-semibold transition-colors',
                     isCurrent && !isDark && 'text-neutral-900',
                     isCurrent && isDark && 'text-white',
-                    isCompleted && !isDark && 'text-neutral-600',
-                    isCompleted && isDark && 'text-primary-100',
-                    isPending && !isDark && 'text-neutral-600',
-                    isPending && isDark && 'text-primary-200/60'
+                    isCompleted && !isDark && 'text-neutral-700',
+                    isCompleted && isDark && 'text-purple-100',
+                    isPending && !isDark && 'text-neutral-500',
+                    isPending && isDark && 'text-purple-300/60'
                   )}
                 >
                   {step.label}
@@ -67,10 +67,12 @@ export function Stepper({ steps, currentStep, className, variant = 'light' }: St
                 {step.description && (
                   <div
                     className={cn(
-                      'text-xs mt-0.5',
-                      !isDark && 'text-neutral-500',
-                      isDark && isCurrent && 'text-primary-100',
-                      isDark && !isCurrent && 'text-primary-200/50'
+                      'text-xs mt-0.5 transition-colors',
+                      isCurrent && !isDark && 'text-neutral-600',
+                      isCompleted && !isDark && 'text-neutral-500',
+                      isPending && !isDark && 'text-neutral-400',
+                      isDark && isCurrent && 'text-purple-100',
+                      isDark && !isCurrent && 'text-purple-300/50'
                     )}
                   >
                     {step.description}
@@ -84,11 +86,11 @@ export function Stepper({ steps, currentStep, className, variant = 'light' }: St
               <div className="flex-1 mx-4">
                 <div
                   className={cn(
-                    'h-0.5 transition-colors',
-                    isCompleted && !isDark && 'bg-green-500',
+                    'h-0.5 transition-all duration-300',
+                    isCompleted && !isDark && 'bg-purple-500',
                     isCompleted && isDark && 'bg-white/60',
-                    !isCompleted && !isDark && 'bg-neutral-200',
-                    !isCompleted && isDark && 'bg-primary-400/30'
+                    !isCompleted && !isDark && 'bg-neutral-300',
+                    !isCompleted && isDark && 'bg-purple-400/30'
                   )}
                 />
               </div>

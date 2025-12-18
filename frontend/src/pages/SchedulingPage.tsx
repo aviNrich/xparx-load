@@ -1,33 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { Stepper, Step } from '../components/ui/stepper';
+import { MappingWizardHeader } from '../components/mappings/MappingWizardHeader';
 import { Label } from '../components/ui/label';
 import { Input } from '../components/ui/input';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { ArrowLeft, Loader2, AlertCircle, Save, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { mappingAPI, executionAPI, ExecutionResponse } from '../services/api';
 import { scheduleAPI } from '../services/schedule.api';
 import { Mapping } from '../types/mapping';
 import { ScheduleMode, ScheduleType, IntervalUnit, WeekDay, ScheduleConfiguration } from '../types/schedule';
-
-const WIZARD_STEPS: Step[] = [
-  {
-    id: 'source-preview',
-    label: 'Source Preview',
-    description: 'Configure source and preview data',
-  },
-  {
-    id: 'column-mapping',
-    label: 'Column Mapping',
-    description: 'Map source to target columns',
-  },
-  {
-    id: 'scheduling',
-    label: 'Schedule & Execute',
-    description: 'Configure execution schedule',
-  },
-];
 
 const INTERVAL_UNITS: { value: IntervalUnit; label: string }[] = [
   { value: 'minutes', label: 'Minutes' },
@@ -234,38 +216,12 @@ export function SchedulingPage() {
   return (
     <div className="h-screen flex flex-col bg-neutral-50">
       {/* Header - Fixed with better visual hierarchy */}
-      <div className="bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 border-b border-indigo-200 flex-shrink-0 shadow-md">
-        <div className="px-6 py-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="gap-2 text-neutral-800 hover:bg-white/70"
-              >
-                <Link to="/mappings">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </Link>
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-neutral-900">Schedule & Execute</h1>
-                {mapping && (
-                  <p className="text-sm text-neutral-700 mt-0.5">
-                    Step 3: Configure execution schedule for {mapping.name}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Stepper - Integrated into colored header */}
-          <div className="mt-4">
-            <Stepper steps={WIZARD_STEPS} currentStep={3} variant="light" />
-          </div>
-        </div>
-      </div>
+      <MappingWizardHeader
+        title="Schedule & Execute"
+        description={mapping ? `Step 3: Configure execution schedule for ${mapping.name}` : "Loading..."}
+        currentStep={3}
+        backLink="/mappings"
+      />
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto pb-20 p-6">

@@ -193,21 +193,25 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
   };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
       <div>
-        <Label htmlFor="name" className="text-neutral-700">Connection Name</Label>
+        <Label htmlFor="name" className="text-neutral-900 text-sm font-medium">
+          Source name<span className="text-red-500">*</span>
+        </Label>
         <Input
           id="name"
           {...register('name')}
-          placeholder="Production Database"
-          className="mt-1.5"
+          placeholder="Type case name..."
+          className="mt-2"
         />
-        {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
+        {errors.name && <p className="text-sm text-red-500 mt-1.5">{errors.name.message}</p>}
       </div>
 
       <div>
-        <Label htmlFor="db_type" className="text-neutral-700">Source Type</Label>
-        <div className="mt-1.5">
+        <Label htmlFor="db_type" className="text-neutral-900 text-sm font-medium">
+          Priority<span className="text-red-500">*</span>
+        </Label>
+        <div className="mt-2">
           <Combobox
             options={[
               { label: 'MySQL', value: 'mysql' },
@@ -221,14 +225,16 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
             emptyMessage="No source type found."
           />
         </div>
-        {errors.db_type && <p className="text-sm text-red-500 mt-1">{errors.db_type.message}</p>}
+        {errors.db_type && <p className="text-sm text-red-500 mt-1.5">{errors.db_type.message}</p>}
       </div>
 
       {dbType === 'file' ? (
         <>
           <div>
-            <Label htmlFor="file_type" className="text-neutral-700">File Type</Label>
-            <div className="mt-1.5">
+            <Label htmlFor="file_type" className="text-neutral-900 text-sm font-medium">
+              File Type<span className="text-red-500">*</span>
+            </Label>
+            <div className="mt-2">
               <Combobox
                 options={[
                   { label: 'CSV', value: 'csv' },
@@ -245,12 +251,12 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
           </div>
 
           <div>
-            <Label className="text-neutral-700">Upload Files</Label>
+            <Label className="text-neutral-900 text-sm font-medium">Upload Files</Label>
             <div
-              className={`mt-1.5 border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              className={`mt-2 border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                 isDragging
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-neutral-300 hover:border-primary-400'
+                  ? 'border-indigo-500 bg-indigo-50'
+                  : 'border-neutral-300 hover:border-indigo-400'
               }`}
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
@@ -332,60 +338,70 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
         <>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="host" className="text-neutral-700">Host</Label>
+              <Label htmlFor="host" className="text-neutral-900 text-sm font-medium">
+                Host<span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="host"
                 {...register('host')}
                 placeholder="localhost"
-                className="mt-1.5"
+                className="mt-2"
               />
-              {errors.host && <p className="text-sm text-red-500 mt-1">{errors.host.message}</p>}
+              {errors.host && <p className="text-sm text-red-500 mt-1.5">{errors.host.message}</p>}
             </div>
 
             <div>
-              <Label htmlFor="port" className="text-neutral-700">Port</Label>
+              <Label htmlFor="port" className="text-neutral-900 text-sm font-medium">
+                Port<span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="port"
                 type="number"
                 {...register('port', { valueAsNumber: true })}
-                className="mt-1.5"
+                className="mt-2"
               />
-              {errors.port && <p className="text-sm text-red-500 mt-1">{errors.port.message}</p>}
+              {errors.port && <p className="text-sm text-red-500 mt-1.5">{errors.port.message}</p>}
             </div>
           </div>
 
           <div>
-            <Label htmlFor="database" className="text-neutral-700">Database</Label>
+            <Label htmlFor="database" className="text-neutral-900 text-sm font-medium">
+              Database<span className="text-red-500">*</span>
+            </Label>
             <Input
               id="database"
               {...register('database')}
               placeholder="my_database"
-              className="mt-1.5"
+              className="mt-2"
             />
-            {errors.database && <p className="text-sm text-red-500 mt-1">{errors.database.message}</p>}
+            {errors.database && <p className="text-sm text-red-500 mt-1.5">{errors.database.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="username" className="text-neutral-700">Username</Label>
+            <Label htmlFor="username" className="text-neutral-900 text-sm font-medium">
+              Username<span className="text-red-500">*</span>
+            </Label>
             <Input
               id="username"
               {...register('username')}
               placeholder="db_user"
-              className="mt-1.5"
+              className="mt-2"
             />
-            {errors.username && <p className="text-sm text-red-500 mt-1">{errors.username.message}</p>}
+            {errors.username && <p className="text-sm text-red-500 mt-1.5">{errors.username.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="password" className="text-neutral-700">Password</Label>
+            <Label htmlFor="password" className="text-neutral-900 text-sm font-medium">
+              Password<span className="text-red-500">*</span>
+            </Label>
             <Input
               id="password"
               type="password"
               {...register('password')}
               placeholder="••••••••"
-              className="mt-1.5"
+              className="mt-2"
             />
-            {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>}
+            {errors.password && <p className="text-sm text-red-500 mt-1.5">{errors.password.message}</p>}
           </div>
         </>
       )}
@@ -408,12 +424,21 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
         </Alert>
       )}
 
-      <div className="flex gap-3 pt-4 border-t border-neutral-200 bg-white">
+      <div className="flex gap-3 pt-6 mt-6">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="flex-1 h-11 border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+        >
+          Cancel
+        </Button>
+
         {dbType === 'file' && (
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
+            className="flex-1 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Upload Files
@@ -427,7 +452,7 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
               variant="outline"
               onClick={handleTestConnection}
               disabled={isTesting}
-              className="flex-1"
+              className="flex-1 h-11 border-neutral-300 text-neutral-700 hover:bg-neutral-50"
             >
               {isTesting ? (
                 <>
@@ -445,17 +470,13 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
             <Button
               type="submit"
               disabled={!testResult?.success || isSubmitting}
-              className="flex-1 bg-primary-600 hover:bg-primary-700"
+              className="flex-1 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEdit ? 'Update' : 'Create'} Connection
+              Create & Add Items
             </Button>
           </>
         )}
-
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
       </div>
     </form>
   );

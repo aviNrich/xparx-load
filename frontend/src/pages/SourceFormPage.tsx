@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ConnectionForm } from '../components/connections/ConnectionForm';
 import { Button } from '../components/ui/button';
 import { useConnections } from '../hooks/useConnections';
 import { ConnectionFormData, DatabaseType } from '../types/connection';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { Dialog, DialogContent } from '../components/ui/dialog';
+import { SourcesPage } from './SourcesPage';
 
 export function SourceFormPage() {
   const navigate = useNavigate();
@@ -92,38 +94,44 @@ export function SourceFormPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-neutral-50">
-      {/* Header */}
-      <div className="bg-white border-b border-neutral-200 flex-shrink-0">
-        <div className="px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="gap-2"
-            >
-              <Link to="/sources">
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold text-neutral-900">
-                {isEditMode ? 'Edit Connection' : 'New Connection'}
-              </h1>
-              <p className="text-xs text-neutral-500">
-                {isEditMode ? 'Update connection configuration' : 'Create a new database connection'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <>
+      {/* Render the sources page in the background */}
+      <SourcesPage />
 
-      {/* Main Content - Centered Form */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="bg-white rounded-xl border border-neutral-200 p-6">
+      {/* Modal Dialog */}
+      <Dialog open={true} onOpenChange={(open) => !open && handleCancel()}>
+        <DialogContent className="max-w-xl bg-white p-0 gap-0 border-none max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="px-8 py-6 bg-neutral-50 border-b border-neutral-200">
+            <h1 className="text-2xl font-semibold text-neutral-900 mb-2">
+              {isEditMode ? 'Edit Connection' : 'Create New Source'}
+            </h1>
+            <p className="text-sm text-neutral-500">
+              {isEditMode ? 'Update connection configuration' : 'Create a new source'}
+            </p>
+          </div>
+
+          {/* Form Content */}
+          <div className="px-8 py-6 bg-white">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-neutral-900 mb-1">
+                  {isEditMode ? 'Edit connection' : 'Create new source'}
+                </h2>
+                <p className="text-sm text-neutral-500">
+                  {isEditMode ? 'Update the details for your connection.' : 'Fill out the details for your new source.'}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancel}
+                className="text-sm text-neutral-600 hover:text-neutral-900"
+              >
+                Back to List
+              </Button>
+            </div>
+
             <ConnectionForm
               initialData={initialData}
               onSubmit={handleSubmit}
@@ -132,8 +140,8 @@ export function SourceFormPage() {
               isEdit={isEditMode}
             />
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Error Dialog */}
       {errorMessage && (
@@ -147,6 +155,6 @@ export function SourceFormPage() {
           onConfirm={() => setErrorDialogOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -1,33 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { Stepper, Step } from '../components/ui/stepper';
 import { Combobox } from '../components/ui/combobox';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { ArrowLeft, Loader2, AlertCircle, Save, Plus, X } from 'lucide-react';
+import { MappingWizardHeader } from '../components/mappings/MappingWizardHeader';
+import { ArrowLeft, Loader2, AlertCircle, X } from 'lucide-react';
 import { mappingAPI, columnMappingAPI } from '../services/api';
 import { schemaAPI } from '../services/api';
 import { Mapping, SqlPreviewResponse, ColumnMapping, ColumnMappingConfiguration, SchemaConfiguration } from '../types/mapping';
 import { TableSchema } from '../types/schema';
 import { ColumnMappingList } from '../components/mappings/ColumnMappingList';
-
-const WIZARD_STEPS: Step[] = [
-  {
-    id: 'source-preview',
-    label: 'Source Preview',
-    description: 'Configure source and preview data',
-  },
-  {
-    id: 'column-mapping',
-    label: 'Column Mapping',
-    description: 'Map source to target columns',
-  },
-  {
-    id: 'scheduling',
-    label: 'Schedule & Execute',
-    description: 'Configure execution schedule',
-  },
-];
 
 export function ColumnMappingPage() {
   const navigate = useNavigate();
@@ -271,36 +253,12 @@ export function ColumnMappingPage() {
   return (
     <div className="h-screen flex flex-col bg-neutral-50">
       {/* Header - Fixed with better visual hierarchy */}
-      <div className="bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 border-b border-indigo-200 flex-shrink-0 shadow-md">
-        <div className="px-6 py-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBack}
-                className="gap-2 text-neutral-800 hover:bg-white/70"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-neutral-900">Column Mapping</h1>
-                {mapping && (
-                  <p className="text-sm text-neutral-700 mt-0.5">
-                    Step 2: Map source columns to target ontology fields
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Stepper - Integrated into colored header */}
-          <div className="mt-4">
-            <Stepper steps={WIZARD_STEPS} currentStep={2} variant="light" />
-          </div>
-        </div>
-      </div>
+      <MappingWizardHeader
+        title="Column Mapping"
+        description={mapping ? "Step 2: Map source columns to target ontology fields" : "Loading..."}
+        currentStep={2}
+        onBack={handleBack}
+      />
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-auto pb-20">
