@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ConnectionForm } from '../components/connections/ConnectionForm';
 import { Button } from '../components/ui/button';
 import { useConnections } from '../hooks/useConnections';
-import { ConnectionFormData } from '../types/connection';
+import { ConnectionFormData, DatabaseType } from '../types/connection';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 
 export function SourceFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const isEditMode = !!id;
+  const typeFromQuery = searchParams.get('type') as DatabaseType | null;
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
@@ -23,7 +25,7 @@ export function SourceFormPage() {
     updateConnection,
   } = useConnections();
 
-  // Load connection data if in edit mode
+  // Load connection data if in edit mode, or set default type in create mode
   useEffect(() => {
     if (isEditMode && id) {
       setIsLoading(true);
@@ -43,17 +45,24 @@ export function SourceFormPage() {
         // If connection not found in the list, wait for it to load
         setIsLoading(true);
       }
+    } else if (!isEditMode && typeFromQuery && !initialData) {
+      // Set default type from query parameter in create mode
+      setInitialData({
+        name: '',
+        db_type: typeFromQuery,
+      });
     }
-  }, [id, isEditMode, connections]);
+  }, [id, isEditMode, connections, typeFromQuery, initialData]);
 
   const handleSubmit = async (data: ConnectionFormData) => {
     try {
       if (isEditMode && id) {
         await updateConnection(id, data);
+        navigate('/sources');
       } else {
-        await createConnection(data);
+        const createdConnection = await createConnection(data);
+        navigate(`/mappings/new?source=${createdConnection._id}`);
       }
-      navigate('/sources');
     } catch (err) {
       console.error('Failed to save connection:', err);
       setErrorMessage(err instanceof Error ? err.message : 'Failed to save connection');
@@ -63,6 +72,10 @@ export function SourceFormPage() {
 
   const handleCancel = () => {
     navigate('/sources');
+  };
+
+  const handleFileUploadSuccess = (connectionId: string) => {
+    navigate(`/mappings/new?source=${connectionId}`);
   };
 
   if (isEditMode && isLoading && !initialData) {
@@ -115,6 +128,7 @@ export function SourceFormPage() {
               initialData={initialData}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
+              onFileUploadSuccess={handleFileUploadSuccess}
               isEdit={isEditMode}
             />
           </div>

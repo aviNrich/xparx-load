@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Stepper, Step } from '../components/ui/stepper';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Combobox } from '../components/ui/combobox';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { ArrowLeft, Loader2, AlertCircle, Save, Plus, X } from 'lucide-react';
 import { mappingAPI, columnMappingAPI } from '../services/api';
@@ -86,26 +86,9 @@ export function ColumnMappingPage() {
           if (existingConfig) {
             setExistingConfigId(existingConfig._id);
 
-            // BACKWARD COMPATIBILITY: Convert old format to new
-            const rawConfig = existingConfig as any;
-            let configsToLoad: SchemaConfiguration[];
-
-            if (rawConfig.target_schemas) {
-              // NEW format
-              configsToLoad = rawConfig.target_schemas;
-            } else if (rawConfig.target_schema_id) {
-              // OLD format - convert to new
-              configsToLoad = [{
-                schema_id: rawConfig.target_schema_id,
-                column_mappings: rawConfig.column_mappings || []
-              }];
-            } else {
-              configsToLoad = [];
-            }
-
             // Load all schemas for the configs
             const loadedConfigs: SchemaConfigState[] = [];
-            for (const config of configsToLoad) {
+            for (const config of existingConfig.target_schemas) {
               try {
                 const schema = await schemaAPI.get(config.schema_id);
                 loadedConfigs.push({
@@ -373,39 +356,22 @@ export function ColumnMappingPage() {
                 </h2>
                 <div className="flex gap-3 items-end max-w-md">
                   <div className="flex-1">
-                    <Select
+                    <Combobox
+                      options={schemas
+                        .filter(s => !schemaConfigs.some(c => c.schema_id === s._id))
+                        .map((schema) => ({
+                          label: schema.description
+                            ? `${schema.name} - ${schema.description}`
+                            : schema.name,
+                          value: schema._id,
+                        }))}
                       value=""
                       onValueChange={handleAddSchema}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a target schema to add..."/>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {schemas
-                          .filter(s => !schemaConfigs.some(c => c.schema_id === s._id))
-                          .map((schema) => (
-                            <SelectItem key={schema._id} value={schema._id}>
-                              {schema.name}
-                              {schema.description && (
-                                <span className="text-xs text-neutral-500 ml-2">
-                                  - {schema.description}
-                                </span>
-                              )}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select a target schema to add..."
+                      searchPlaceholder="Search schemas..."
+                      emptyMessage="No schemas available."
+                    />
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </Button>
                 </div>
               </div>
 

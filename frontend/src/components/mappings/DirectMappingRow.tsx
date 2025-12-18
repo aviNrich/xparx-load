@@ -1,7 +1,7 @@
 import React from 'react';
 import { DirectMapping } from '../../types/mapping';
 import { SchemaField } from '../../types/schema';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Combobox } from '../ui/combobox';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Trash2 } from 'lucide-react';
@@ -65,21 +65,16 @@ export function DirectMappingRow({
           <Label className="text-xs text-neutral-600">
             Source Column <span className="text-red-500">*</span>
           </Label>
-          <Select
-            value={mapping.source_column}
-            onValueChange={(value) => onChange({ ...mapping, source_column: value })}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Select source column" />
-            </SelectTrigger>
-            <SelectContent>
-              {sourceColumns.map((column) => (
-                <SelectItem key={column} value={column}>
-                  {column}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="mt-1">
+            <Combobox
+              options={sourceColumns.map((column) => ({ label: column, value: column }))}
+              value={mapping.source_column}
+              onValueChange={(value) => onChange({ ...mapping, source_column: value })}
+              placeholder="Select source column..."
+              searchPlaceholder="Search columns..."
+              emptyMessage="No columns found."
+            />
+          </div>
           {mapping.source_column && (
             <p className="text-xs text-neutral-500 mt-1">
               Sample: <span className="font-mono">{getSampleValue()}</span>
@@ -92,24 +87,19 @@ export function DirectMappingRow({
           <Label className="text-xs text-neutral-600">
             Target Field <span className="text-red-500">*</span>
           </Label>
-          <Select
-            value={mapping.target_field}
-            onValueChange={(value) => onChange({ ...mapping, target_field: value })}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Select target field" />
-            </SelectTrigger>
-            <SelectContent>
-              {targetFields.map((field) => (
-                <SelectItem key={field.name} value={field.name}>
-                  <div className="flex items-center gap-2">
-                    <span>{field.name}</span>
-                    <span className="text-xs text-neutral-500">({field.field_type})</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="mt-1">
+            <Combobox
+              options={targetFields.map((field) => ({
+                label: `${field.name} (${field.field_type})`,
+                value: field.name,
+              }))}
+              value={mapping.target_field}
+              onValueChange={(value) => onChange({ ...mapping, target_field: value })}
+              placeholder="Select target field..."
+              searchPlaceholder="Search fields..."
+              emptyMessage="No fields found."
+            />
+          </div>
           {mapping.target_field && (
             <p className="text-xs text-neutral-500 mt-1">Type: {getTargetFieldType()}</p>
           )}

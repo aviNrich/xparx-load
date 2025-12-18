@@ -264,35 +264,16 @@ class ExecutionService:
                 f"Column mapping not found for mapping: {mapping_id}"
             )
 
-        # BACKWARD COMPATIBILITY: Handle both old and new formats
-        # NEW format: target_schemas (array of schema configs)
-        # OLD format: target_schema_id (single schema)
+        # Load all target schemas
+        if "target_schemas" not in column_mapping or not column_mapping["target_schemas"]:
+            raise ColumnMappingNotFoundError(
+                f"No target schemas configured for mapping: {mapping_id}"
+            )
+
         target_schema_configs = []
-
-        if "target_schemas" in column_mapping and column_mapping["target_schemas"]:
-            # NEW format - multi-schema support
-            for schema_config in column_mapping["target_schemas"]:
-                target_schema_id = schema_config["schema_id"]
-                column_mappings_list = schema_config["column_mappings"]
-
-                # Get target schema from DB
-                target_schema = self.schemas_collection.find_one(
-                    {"_id": ObjectId(target_schema_id)}
-                )
-                if not target_schema:
-                    raise SchemaNotFoundError(
-                        f"Target schema not found: {target_schema_id}"
-                    )
-
-                target_schema_configs.append({
-                    "column_mappings": column_mappings_list,
-                    "target_schema": target_schema,
-                })
-
-        elif "target_schema_id" in column_mapping:
-            # OLD format - single schema
-            target_schema_id = column_mapping["target_schema_id"]
-            column_mappings_list = column_mapping["column_mappings"]
+        for schema_config in column_mapping["target_schemas"]:
+            target_schema_id = schema_config["schema_id"]
+            column_mappings_list = schema_config["column_mappings"]
 
             # Get target schema from DB
             target_schema = self.schemas_collection.find_one(
@@ -307,15 +288,11 @@ class ExecutionService:
                 "column_mappings": column_mappings_list,
                 "target_schema": target_schema,
             })
-        else:
-            raise ColumnMappingNotFoundError(
-                f"Invalid column mapping format: missing 'target_schemas' or 'target_schema_id'"
-            )
 
         return {
             "mapping": mapping,
             "connection": connection,
-            "target_schema_configs": target_schema_configs,  # Now returns array of configs
+            "target_schema_configs": target_schema_configs,
         }
 
     def _extract_source_data(self, config: Dict[str, Any]) -> DataFrame:

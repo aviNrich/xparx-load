@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { SplitMapping } from '../../types/mapping';
 import { SchemaField } from '../../types/schema';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Combobox } from '../ui/combobox';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';

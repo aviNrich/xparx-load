@@ -12,7 +12,6 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Combobox, ComboboxOption } from '../components/ui/combobox';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { SqlPreviewTable } from '../components/mappings/SqlPreviewTable';
@@ -87,6 +86,16 @@ export function NewMappingPage() {
   // Get the selected connection to check if it's a file upload
   const selectedConnection = connections.find((conn) => conn._id === sourceConnectionId);
   const isFileUpload = selectedConnection?.db_type === 'file';
+
+  // Set source connection from query parameter once connections are loaded
+  useEffect(() => {
+    if (sourceFromQuery && !isEditMode && connections.length > 0 && !sourceConnectionId) {
+      const connectionExists = connections.find((conn) => conn._id === sourceFromQuery);
+      if (connectionExists) {
+        setValue('source_connection_id', sourceFromQuery);
+      }
+    }
+  }, [sourceFromQuery, isEditMode, connections, sourceConnectionId, setValue]);
 
   // Set default query for file uploads
   useEffect(() => {
@@ -470,28 +479,27 @@ export function NewMappingPage() {
                 <Label htmlFor="source_connection_id" className="text-neutral-700 text-xs">
                   Source Connection <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={sourceConnectionId}
-                  onValueChange={(value) => {
-                    setValue('source_connection_id', value);
-                    setSourceTable('');
-                    setValue('sql_query', '');
-                    setSqlManuallyEdited(false);
-                    setPreviewData(null);
-                    setPreviewError(null);
-                  }}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={connectionsLoading ? "Loading..." : "Select connection"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {connections.map((conn) => (
-                      <SelectItem key={conn._id} value={conn._id}>
-                        {conn.name} ({conn.db_type.toUpperCase()})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="mt-1">
+                  <Combobox
+                    options={connections.map((conn) => ({
+                      label: `${conn.name} (${conn.db_type.toUpperCase()})`,
+                      value: conn._id,
+                    }))}
+                    value={sourceConnectionId}
+                    onValueChange={(value) => {
+                      setValue('source_connection_id', value);
+                      setSourceTable('');
+                      setValue('sql_query', '');
+                      setSqlManuallyEdited(false);
+                      setPreviewData(null);
+                      setPreviewError(null);
+                    }}
+                    placeholder={connectionsLoading ? "Loading..." : "Select connection..."}
+                    searchPlaceholder="Search connections..."
+                    emptyMessage="No connections found."
+                    loading={connectionsLoading}
+                  />
+                </div>
                 {errors.source_connection_id && (
                   <p className="text-xs text-red-500 mt-1">{errors.source_connection_id.message}</p>
                 )}

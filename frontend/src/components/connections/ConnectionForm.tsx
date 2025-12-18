@@ -7,7 +7,7 @@ import { connectionAPI } from '../../services/api';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Combobox } from '../ui/combobox';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, CheckCircle, XCircle, Wifi, Upload, X, FileText } from 'lucide-react';
 
@@ -26,10 +26,11 @@ interface ConnectionFormProps {
   initialData?: ConnectionFormData;
   onSubmit: (data: ConnectionFormData) => Promise<void>;
   onCancel: () => void;
+  onFileUploadSuccess?: (connectionId: string) => void;
   isEdit?: boolean;
 }
 
-export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: ConnectionFormProps) {
+export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSuccess, isEdit }: ConnectionFormProps) {
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,6 +44,7 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
     formState: { errors },
     watch,
     setValue,
+    reset,
   } = useForm<ConnectionFormData>({
     resolver: zodResolver(connectionSchema),
     defaultValues: initialData || {
@@ -59,6 +61,13 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
 
   const dbType = watch('db_type');
   const fileType = watch('file_type');
+
+  // Update form when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      reset(initialData);
+    }
+  }, [initialData, reset]);
 
   // Update port when db_type changes
   useEffect(() => {
@@ -109,8 +118,13 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
           (progress) => setUploadProgress(progress)
         );
         console.log('Upload successful:', result);
-        // Trigger navigation by calling onCancel (which navigates back)
-        onCancel();
+        // If callback is provided, call it with the connection ID
+        if (onFileUploadSuccess) {
+          onFileUploadSuccess(result._id);
+        } else {
+          // Fallback to onCancel if no callback provided
+          onCancel();
+        }
       } catch (error) {
         console.error('Upload failed:', error);
         setTestResult({
@@ -193,19 +207,20 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
 
       <div>
         <Label htmlFor="db_type" className="text-neutral-700">Source Type</Label>
-        <Select
-          value={dbType}
-          onValueChange={(value) => setValue('db_type', value as DatabaseType)}
-        >
-          <SelectTrigger className="mt-1.5">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="mysql">MySQL</SelectItem>
-            <SelectItem value="postgresql">PostgreSQL</SelectItem>
-            <SelectItem value="file">File Upload</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="mt-1.5">
+          <Combobox
+            options={[
+              { label: 'MySQL', value: 'mysql' },
+              { label: 'PostgreSQL', value: 'postgresql' },
+              { label: 'File Upload', value: 'file' },
+            ]}
+            value={dbType}
+            onValueChange={(value) => setValue('db_type', value as DatabaseType)}
+            placeholder="Select source type..."
+            searchPlaceholder="Search source types..."
+            emptyMessage="No source type found."
+          />
+        </div>
         {errors.db_type && <p className="text-sm text-red-500 mt-1">{errors.db_type.message}</p>}
       </div>
 
@@ -213,19 +228,20 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, isEdit }: Conn
         <>
           <div>
             <Label htmlFor="file_type" className="text-neutral-700">File Type</Label>
-            <Select
-              value={fileType}
-              onValueChange={(value) => setValue('file_type', value as FileType)}
-            >
-              <SelectTrigger className="mt-1.5">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="csv">CSV</SelectItem>
-                <SelectItem value="json">JSON</SelectItem>
-                <SelectItem value="excel">Excel</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="mt-1.5">
+              <Combobox
+                options={[
+                  { label: 'CSV', value: 'csv' },
+                  { label: 'JSON', value: 'json' },
+                  { label: 'Excel', value: 'excel' },
+                ]}
+                value={fileType}
+                onValueChange={(value) => setValue('file_type', value as FileType)}
+                placeholder="Select file type..."
+                searchPlaceholder="Search file types..."
+                emptyMessage="No file type found."
+              />
+            </div>
           </div>
 
           <div>

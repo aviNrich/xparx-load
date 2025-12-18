@@ -9,7 +9,7 @@ import {
 } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Combobox } from '../ui/combobox';
 import { Info } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 
@@ -165,24 +165,17 @@ export function EntityColumnSelectionDialog({
             <p className="text-xs text-neutral-500 mb-2">
               The root entity identifier (e.g., poi_id, user_id, customer_id)
             </p>
-            <Select
+            <Combobox
+              options={columns.map((col) => ({ label: col, value: col }))}
               value={entityRootIdColumn}
               onValueChange={(value) => {
                 setEntityRootIdColumn(value);
                 setError('');
               }}
-            >
-              <SelectTrigger id="entity_root_id" className="w-full">
-                <SelectValue placeholder="Select column..." />
-              </SelectTrigger>
-              <SelectContent>
-                {columns.map((col) => (
-                  <SelectItem key={col} value={col}>
-                    {col}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select column..."
+              searchPlaceholder="Search columns..."
+              emptyMessage="No columns found."
+            />
           </div>
 
           {/* Entity ID Column */}
@@ -193,24 +186,17 @@ export function EntityColumnSelectionDialog({
             <p className="text-xs text-neutral-500 mb-2">
               The row identifier (e.g., id, row_id, record_id)
             </p>
-            <Select
+            <Combobox
+              options={columns.map((col) => ({ label: col, value: col }))}
               value={entityIdColumn}
               onValueChange={(value) => {
                 setEntityIdColumn(value);
                 setError('');
               }}
-            >
-              <SelectTrigger id="entity_id" className="w-full">
-                <SelectValue placeholder="Select column..." />
-              </SelectTrigger>
-              <SelectContent>
-                {columns.map((col) => (
-                  <SelectItem key={col} value={col}>
-                    {col}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select column..."
+              searchPlaceholder="Search columns..."
+              emptyMessage="No columns found."
+            />
           </div>
 
           {/* Error Message */}

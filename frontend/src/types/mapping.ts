@@ -72,17 +72,7 @@ export interface SchemaConfiguration {
 export interface ColumnMappingConfiguration {
   _id?: string;
   mapping_id: string;
-  target_schemas: SchemaConfiguration[];  // NEW: Array of schema configs
-  created_at?: string;
-  updated_at?: string;
-}
-
-// BACKWARD COMPATIBILITY: Old format (will be removed after migration)
-export interface LegacyColumnMappingConfiguration {
-  _id?: string;
-  mapping_id: string;
-  target_schema_id: string;  // OLD: Single schema
-  column_mappings: ColumnMapping[];  // OLD: Single array
+  target_schemas: SchemaConfiguration[];
   created_at?: string;
   updated_at?: string;
 }

@@ -87,7 +87,7 @@ export function Sidebar({ activeItem, onItemClick, isCollapsed, onToggleCollapse
         <div className="p-3">
           <button
             onClick={() => {
-              navigate('/sources', { state: { openDialog: true } });
+              navigate('/sources/new', { state: { openDialog: true } });
             }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-md transition-colors"
           >
