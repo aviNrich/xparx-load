@@ -223,11 +223,12 @@ class MappingService:
 
         mapping["_id"] = str(mapping["_id"])
 
-        # Populate source_name from connection
+        # Populate source_name and source_type from connection
         if mapping.get("source_connection_id"):
             connection = self.collection.find_one({"_id": ObjectId(mapping["source_connection_id"])})
             if connection:
                 mapping["source_name"] = connection.get("name")
+                mapping["source_type"] = connection.get("db_type")
 
         return MappingResponse(**mapping)
 
@@ -237,11 +238,12 @@ class MappingService:
         for mapping in mappings:
             mapping["_id"] = str(mapping["_id"])
 
-            # Populate source_name from connection
+            # Populate source_name and source_type from connection
             if mapping.get("source_connection_id"):
                 connection = self.collection.find_one({"_id": ObjectId(mapping["source_connection_id"])})
                 if connection:
                     mapping["source_name"] = connection.get("name")
+                    mapping["source_type"] = connection.get("db_type")
 
         return [MappingResponse(**mapping) for mapping in mappings]
 

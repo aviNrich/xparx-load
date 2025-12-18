@@ -23,16 +23,18 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
 
   // Group mappings by source
   const groupedMappings = useMemo(() => {
-    const groups = new Map<string, { sourceName: string; sourceId: string; mappings: Mapping[] }>();
+    const groups = new Map<string, { sourceName: string; sourceId: string; sourceType?: string; mappings: Mapping[] }>();
 
     mappings.forEach((mapping) => {
       const sourceId = mapping.source_connection_id;
       const sourceName = mapping.source_name || sourceId;
+      const sourceType = mapping.source_type;
 
       if (!groups.has(sourceId)) {
         groups.set(sourceId, {
           sourceName,
           sourceId,
+          sourceType,
           mappings: [],
         });
       }
@@ -77,7 +79,14 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                     <Database className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="text-left">
-                    <h3 className="font-semibold text-neutral-900 text-base">{group.sourceName}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-neutral-900 text-base">{group.sourceName}</h3>
+                      {group.sourceType && (
+                        <span className="text-xs px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-md font-medium uppercase">
+                          {group.sourceType}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-neutral-500">
                       {group.mappings.length} {group.mappings.length === 1 ? 'mapping' : 'mappings'}
                     </p>
