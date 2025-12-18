@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { ConnectionList } from '../components/connections/ConnectionList';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { Button } from '../components/ui/button';
+import { MetricCard } from '../components/ui/metric-card';
 import { useConnections } from '../hooks/useConnections';
 import { Connection } from '../types/connection';
-import { Plus, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, Database, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { toast } from 'sonner';
 
 export function SourcesPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -32,52 +35,73 @@ export function SourcesPage() {
     try {
       await deleteConnection(connectionToDelete._id);
       setConnectionToDelete(null);
+      toast.success('Connection deleted successfully!');
     } catch (err) {
       console.error('Failed to delete connection:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete connection');
+      const message = err instanceof Error ? err.message : 'Failed to delete connection';
+      toast.error(message);
+      setErrorMessage(message);
       setErrorDialogOpen(true);
     }
   };
 
+  const activeCount = connections.filter(c => c.last_test_status === 'success').length;
+  const failedCount = connections.filter(c => c.last_test_status === 'failed').length;
+
   return (
     <>
       {/* Header */}
-      <div className="mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Source Connections</h1>
-            <p className="text-sm text-neutral-500 mt-1">Manage your database connections for ETL pipelines</p>
+            <h1 className="text-3xl font-bold text-neutral-900">Data Sources</h1>
+            <p className="text-neutral-600 mt-2">Connect databases and files to power your data flows</p>
           </div>
           <Button
             asChild
-            className="bg-primary-500 hover:bg-primary-600 text-white shadow-sm"
+            className="bg-primary-500 hover:bg-primary-600 text-white shadow-lg hover:shadow-xl transition-all"
           >
             <Link to="/sources/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Connection
+              <Plus className="mr-2 h-5 w-5" />
+              Add Source
             </Link>
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-5 border border-neutral-200">
-          <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Connections</div>
-          <div className="text-3xl font-bold text-neutral-900 mt-2">{connections.length}</div>
-        </div>
-        <div className="bg-white rounded-xl p-5 border border-neutral-200">
-          <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Active</div>
-          <div className="text-3xl font-bold text-green-600 mt-2">
-            {connections.filter(c => c.last_test_status === 'success').length}
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-5 border border-neutral-200">
-          <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Failed</div>
-          <div className="text-3xl font-bold text-red-600 mt-2">
-            {connections.filter(c => c.last_test_status === 'failed').length}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <MetricCard
+          title="Total Sources"
+          value={connections.length}
+          icon={Database}
+          iconColor="text-primary-600"
+          iconBgColor="bg-primary-100"
+          loading={loading}
+        />
+        <MetricCard
+          title="Active Connections"
+          value={activeCount}
+          icon={CheckCircle}
+          iconColor="text-success-600"
+          iconBgColor="bg-success-100"
+          trend="up"
+          trendValue={`${connections.length > 0 ? Math.round((activeCount / connections.length) * 100) : 0}%`}
+          loading={loading}
+        />
+        <MetricCard
+          title="Failed Connections"
+          value={failedCount}
+          icon={XCircle}
+          iconColor="text-error-600"
+          iconBgColor="bg-error-100"
+          trend={failedCount > 0 ? 'down' : undefined}
+          loading={loading}
+        />
       </div>
 
       {error && (

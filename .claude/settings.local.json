@@ -6,7 +6,8 @@
       "Bash(python3:*)",
       "Bash(curl:*)",
       "Bash(find:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

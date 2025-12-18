@@ -17,6 +17,7 @@ import { SchemaPage } from './pages/SchemaPage';
 import { SchemaFormPage } from './pages/SchemaFormPage';
 import SchemaPreviewPage from './pages/SchemaPreviewPage';
 import SettingsPage from './pages/SettingsPage';
+import { Toaster } from './components/ui/toaster';
 
 function DashboardPage() {
   return (
@@ -159,6 +160,7 @@ function App() {
           </div>
         </main>
       </div>
+      <Toaster />
     </Router>
   );
 }

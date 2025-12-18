@@ -26,24 +26,21 @@ class PreviewResponse(BaseModel):
 
 
 @router.post("/", response_model=PreviewResponse)
-def preview_data(
-    request: PreviewRequest,
-    db: Database = Depends(get_database)
-):
+def preview_data(request: PreviewRequest, db: Database = Depends(get_database)):
     """Preview data from connection (DB or file) using Spark with SQL filtering"""
     try:
         # Get connection from database
         if not ObjectId.is_valid(request.connection_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid connection ID: {request.connection_id}"
+                detail=f"Invalid connection ID: {request.connection_id}",
             )
 
         connection = db.connections.find_one({"_id": ObjectId(request.connection_id)})
         if not connection:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Connection not found: {request.connection_id}"
+                detail=f"Connection not found: {request.connection_id}",
             )
 
         # Validate query is a SELECT statement
@@ -51,7 +48,7 @@ def preview_data(
         if not query_upper.startswith("SELECT"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only SELECT queries are allowed"
+                detail="Only SELECT queries are allowed",
             )
 
         spark = get_spark_session()
@@ -70,13 +67,15 @@ def preview_data(
                 driver = "org.postgresql.Driver"
 
             # Execute query directly via JDBC
-            df = spark.read.format("jdbc") \
-                .option("url", jdbc_url) \
-                .option("query", f"({request.sql_query}) as subquery") \
-                .option("user", connection["username"]) \
-                .option("password", password) \
-                .option("driver", driver) \
+            df = (
+                spark.read.format("jdbc")
+                .option("url", jdbc_url)
+                .option("query", request.sql_query)
+                .option("user", connection["username"])
+                .option("password", password)
+                .option("driver", driver)
                 .load()
+            )
 
         elif db_type == "file":
             # File connection - load files and create temp view
@@ -86,23 +85,29 @@ def preview_data(
             if not file_paths:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No files found in connection"
+                    detail="No files found in connection",
                 )
 
             # Read all files based on file type
             if file_type == "csv":
-                dfs = [spark.read.csv(fp, header=True, inferSchema=True) for fp in file_paths]
+                dfs = [
+                    spark.read.csv(fp, header=True, inferSchema=True)
+                    for fp in file_paths
+                ]
             elif file_type == "json":
                 dfs = [spark.read.json(fp) for fp in file_paths]
             elif file_type == "excel":
-                dfs = [spark.read.format("com.crealytics.spark.excel")
-                      .option("header", "true")
-                      .option("inferSchema", "true")
-                      .load(fp) for fp in file_paths]
+                dfs = [
+                    spark.read.format("com.crealytics.spark.excel")
+                    .option("header", "true")
+                    .option("inferSchema", "true")
+                    .load(fp)
+                    for fp in file_paths
+                ]
             else:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Unsupported file type: {file_type}"
+                    detail=f"Unsupported file type: {file_type}",
                 )
 
             # Union all dataframes if multiple files
@@ -117,7 +122,7 @@ def preview_data(
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported connection type: {db_type}"
+                detail=f"Unsupported connection type: {db_type}",
             )
 
         # Limit results
@@ -130,16 +135,35 @@ def preview_data(
         columns = pandas_df.columns.tolist()
         rows = pandas_df.fillna("").values.tolist()
 
-        return PreviewResponse(
-            columns=columns,
-            rows=rows,
-            row_count=len(rows)
-        )
+        return PreviewResponse(columns=columns, rows=rows, row_count=len(rows))
 
     except HTTPException:
         raise
     except Exception as e:
+        print(e)
+
+        # Extract cleaner error message from Java/Spark exceptions
+        error_str = str(e)
+
+        # Check for SQL syntax errors
+        if "SQLSyntaxErrorException" in error_str or "SQLException" in error_str:
+            # Extract just the SQL error message
+            lines = error_str.split('\n')
+            sql_error_line = None
+            for line in lines:
+                if "SQLSyntaxErrorException:" in line or "SQLException:" in line:
+                    sql_error_line = line.split(':', 1)[-1].strip()
+                    break
+
+            if sql_error_line:
+                detail_msg = f"SQL Error: {sql_error_line}"
+            else:
+                detail_msg = f"SQL Error: {lines[0] if lines else error_str}"
+        else:
+            # For other errors, just show the first line
+            detail_msg = error_str.split('\n')[0] if '\n' in error_str else error_str
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to preview data: {str(e)}"
+            detail=detail_msg,
         )

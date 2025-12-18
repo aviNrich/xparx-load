@@ -128,14 +128,17 @@ export function NewMappingPage() {
             });
             setPreviewData(result);
             setPreviewError(null);
-          } catch (error) {
-            setPreviewError(error instanceof Error ? error.message : 'Failed to preview query');
+          } catch (error: any) {
+            // Extract detailed error message from axios error response
+            const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to preview query';
+            setPreviewError(errorMessage);
           } finally {
             setIsPreviewing(false);
           }
         })
-        .catch((error) => {
-          setPreviewError('Failed to load mapping: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        .catch((error: any) => {
+          const errorMessage = error?.response?.data?.detail || error?.message || 'Unknown error';
+          setPreviewError('Failed to load mapping: ' + errorMessage);
         })
         .finally(() => {
           setIsLoading(false);
@@ -221,8 +224,10 @@ export function NewMappingPage() {
         sql_query: sqlQuery,
       });
       setPreviewData(result);
-    } catch (error) {
-      setPreviewError(error instanceof Error ? error.message : 'Failed to preview query');
+    } catch (error: any) {
+      // Extract detailed error message from axios error response
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to preview query';
+      setPreviewError(errorMessage);
     } finally {
       setIsPreviewing(false);
     }
@@ -241,8 +246,9 @@ export function NewMappingPage() {
           entity_id_column: entityIdColumn,
         });
         navigate(`/mappings/${mappingId}/columns`);
-      } catch (error) {
-        setPreviewError(error instanceof Error ? error.message : 'Failed to update mapping');
+      } catch (error: any) {
+        const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to update mapping';
+        setPreviewError(errorMessage);
       }
     } else {
       // Create new mapping with entity columns
@@ -261,8 +267,9 @@ export function NewMappingPage() {
         });
         console.log('Mapping saved:', savedMapping);
         navigate(`/mappings/${savedMapping._id}/columns`);
-      } catch (error) {
-        setPreviewError(error instanceof Error ? error.message : 'Failed to save mapping');
+      } catch (error: any) {
+        const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to save mapping';
+        setPreviewError(errorMessage);
       } finally {
         setIsSaving(false);
       }
@@ -341,8 +348,9 @@ export function NewMappingPage() {
                           source_connection_id: formData.source_connection_id,
                           sql_query: formData.sql_query,
                         });
-                      } catch (error) {
-                        setPreviewError(error instanceof Error ? error.message : 'Failed to update mapping');
+                      } catch (error: any) {
+                        const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to update mapping';
+                        setPreviewError(errorMessage);
                       } finally {
                         setIsSaving(false);
                       }
@@ -511,9 +519,55 @@ export function NewMappingPage() {
 
               {/* Preview Error */}
               {previewError && (
-                <Alert variant="destructive" className="text-xs">
-                  <AlertCircle className="h-3 w-3" />
-                  <AlertDescription className="text-xs">{previewError}</AlertDescription>
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    {(() => {
+                      // Parse the error message to extract main error and stack trace
+                      const parts = previewError.split('\n').filter(line => line.trim());
+
+                      // Check if this is a SQL error
+                      const isSqlError = previewError.includes('SQL Error:') ||
+                                         previewError.includes('SQLSyntaxErrorException') ||
+                                         previewError.includes('SQLException');
+
+                      // Extract main error message (first meaningful line)
+                      let mainError = parts[0];
+                      if (mainError.includes('SQL Error:')) {
+                        mainError = mainError.replace('Failed to preview data: ', '');
+                      }
+
+                      // Remaining lines are stack trace
+                      const stackTrace = parts.slice(1);
+                      const hasStackTrace = stackTrace.length > 0 &&
+                                           stackTrace.some(line =>
+                                             line.includes('at ') ||
+                                             line.includes('.java:') ||
+                                             line.includes('.scala:')
+                                           );
+
+                      return (
+                        <div className="space-y-2">
+                          <div className="font-semibold text-sm">
+                            {isSqlError ? 'SQL Error' : 'Query Execution Failed'}
+                          </div>
+                          <div className="text-sm leading-relaxed">
+                            {mainError}
+                          </div>
+                          {hasStackTrace && (
+                            <details className="mt-3 text-xs">
+                              <summary className="cursor-pointer opacity-70 hover:opacity-100 font-medium">
+                                Show technical details
+                              </summary>
+                              <pre className="mt-2 text-[11px] opacity-60 overflow-x-auto max-h-48 overflow-y-auto bg-red-950/20 p-3 rounded border border-red-900/20">
+                                {stackTrace.join('\n')}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </AlertDescription>
                 </Alert>
               )}
             </div>
