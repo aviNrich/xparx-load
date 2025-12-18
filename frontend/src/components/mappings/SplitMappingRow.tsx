@@ -5,6 +5,7 @@ import { Combobox } from '../ui/combobox';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { Trash2, Plus, X } from 'lucide-react';
 
 interface SplitMappingRowProps {

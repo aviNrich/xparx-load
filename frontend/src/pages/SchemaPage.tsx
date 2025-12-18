@@ -1,30 +1,54 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { SchemaList } from '../components/schemas/SchemaList';
+import { SchemaFormModal } from '../components/schemas/SchemaFormModal';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { Button } from '../components/ui/button';
+import { MetricCard } from '../components/ui/metric-card';
 import { useSchemas } from '../hooks/useSchemas';
-import { TableSchema } from '../types/schema';
+import { TableSchema, TableSchemaFormData } from '../types/schema';
 import { Plus, Loader2, AlertCircle, Table2, Layers, Clock } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { toast } from 'sonner';
 
 export function SchemaPage() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isEditMode = !!id;
+  const isModalOpen = window.location.pathname.includes('/new') || isEditMode;
+
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [schemaToDelete, setSchemaToDelete] = useState<TableSchema | null>(null);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [modalInitialData, setModalInitialData] = useState<TableSchemaFormData | undefined>(undefined);
 
   const {
     schemas,
     loading,
     error,
     deleteSchema,
+    createSchema,
+    updateSchema,
   } = useSchemas();
 
-  const handleEdit = (schema: TableSchema) => {
-    navigate(`/schema/${schema._id}`);
-  };
+  // Load schema data if in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      const schema = schemas.find(s => s._id === id);
+      if (schema) {
+        setModalInitialData({
+          name: schema.name,
+          schema_handler: schema.schema_handler,
+          description: schema.description,
+          fields: schema.fields,
+        });
+      }
+    } else if (!isEditMode) {
+      setModalInitialData(undefined);
+    }
+  }, [id, isEditMode, schemas]);
 
   const handleDelete = (schema: TableSchema) => {
     setSchemaToDelete(schema);
@@ -37,15 +61,43 @@ export function SchemaPage() {
     try {
       await deleteSchema(schemaToDelete._id);
       setSchemaToDelete(null);
+      toast.success('Schema deleted successfully!');
     } catch (err) {
       console.error('Failed to delete schema:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete schema');
+      const message = err instanceof Error ? err.message : 'Failed to delete schema';
+      toast.error(message);
+      setErrorMessage(message);
       setErrorDialogOpen(true);
     }
   };
 
-  const handleNewSchema = () => {
-    navigate('/schema/new');
+  const handleModalSubmit = async (data: TableSchemaFormData) => {
+    try {
+      if (isEditMode && id) {
+        await updateSchema(id, data);
+        toast.success('Schema updated successfully!');
+      } else {
+        await createSchema(data);
+        toast.success('Schema created successfully!');
+      }
+      navigate('/schema');
+    } catch (err) {
+      console.error('Failed to save schema:', err);
+      const message = err instanceof Error ? err.message : 'Failed to save schema';
+      toast.error(message);
+      setErrorMessage(message);
+      setErrorDialogOpen(true);
+    }
+  };
+
+  const handleModalCancel = () => {
+    navigate('/schema');
+  };
+
+  const handleModalOpenChange = (open: boolean) => {
+    if (!open) {
+      navigate('/schema');
+    }
   };
 
   // Calculate stats
@@ -59,59 +111,52 @@ export function SchemaPage() {
   return (
     <>
       {/* Header */}
-      <div className="mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Table Schemas</h1>
-            <p className="text-sm text-neutral-500 mt-1">Define and manage your table structures</p>
+            <h1 className="text-3xl font-bold text-neutral-900">Table Schemas</h1>
+            <p className="text-neutral-600 mt-2">Define and manage your data ontology structures</p>
           </div>
           <Button
-            onClick={handleNewSchema}
-            className="bg-primary-500 hover:bg-primary-600 text-white shadow-sm"
+            onClick={() => navigate('/schema/new')}
+            className="bg-primary-500 hover:bg-primary-600 text-white shadow-lg hover:shadow-xl transition-all"
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 h-5 w-5" />
             New Schema
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-5 border border-neutral-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-              <Table2 className="h-5 w-5 text-primary-600" />
-            </div>
-            <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
-              Total Schemas
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-neutral-900">{schemas.length}</div>
-        </div>
-
-        <div className="bg-white rounded-xl p-5 border border-neutral-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Layers className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
-              Total Fields
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-neutral-900">{totalFields}</div>
-        </div>
-
-        <div className="bg-white rounded-xl p-5 border border-neutral-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Clock className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
-              Updated (7d)
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-neutral-900">{recentSchemas}</div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <MetricCard
+          title="Total Schemas"
+          value={schemas.length}
+          icon={Table2}
+          iconColor="text-primary-600"
+          iconBgColor="bg-primary-100"
+          loading={loading}
+        />
+        <MetricCard
+          title="Total Fields"
+          value={totalFields}
+          icon={Layers}
+          iconColor="text-blue-600"
+          iconBgColor="bg-blue-100"
+          loading={loading}
+        />
+        <MetricCard
+          title="Updated (7d)"
+          value={recentSchemas}
+          icon={Clock}
+          iconColor="text-green-600"
+          iconBgColor="bg-green-100"
+          loading={loading}
+        />
       </div>
 
       {error && (
@@ -131,7 +176,6 @@ export function SchemaPage() {
       ) : (
         <SchemaList
           schemas={schemas}
-          onEdit={handleEdit}
           onDelete={handleDelete}
         />
       )}
@@ -147,6 +191,16 @@ export function SchemaPage() {
         variant="destructive"
         onConfirm={confirmDelete}
         onCancel={() => setSchemaToDelete(null)}
+      />
+
+      {/* Schema Form Modal */}
+      <SchemaFormModal
+        open={isModalOpen}
+        onOpenChange={handleModalOpenChange}
+        initialData={modalInitialData}
+        onSubmit={handleModalSubmit}
+        onCancel={handleModalCancel}
+        isEdit={isEditMode}
       />
 
       {/* Error Dialog */}

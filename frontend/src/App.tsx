@@ -5,7 +5,6 @@ import { MetricCard } from './components/dashboard/MetricCard';
 import { MarketDemands } from './components/dashboard/MarketDemands';
 import { ItemSuppliers } from './components/dashboard/ItemSuppliers';
 import { SourcesPage } from './pages/SourcesPage';
-import { SourceFormPage } from './pages/SourceFormPage';
 import { Search, Calendar, FileDown, Plus } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
@@ -14,7 +13,6 @@ import { NewMappingPage } from './pages/NewMappingPage';
 import { ColumnMappingPage } from './pages/ColumnMappingPage';
 import { SchedulingPage } from './pages/SchedulingPage';
 import { SchemaPage } from './pages/SchemaPage';
-import { SchemaFormPage } from './pages/SchemaFormPage';
 import SchemaPreviewPage from './pages/SchemaPreviewPage';
 import SettingsPage from './pages/SettingsPage';
 import { Toaster } from './components/ui/toaster';
@@ -143,16 +141,16 @@ function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/sources" element={<SourcesPage />} />
-              <Route path="/sources/new" element={<SourceFormPage />} />
-              <Route path="/sources/:id" element={<SourceFormPage />} />
+              <Route path="/sources/new" element={<SourcesPage />} />
+              <Route path="/sources/:id" element={<SourcesPage />} />
               <Route path="/mappings" element={<MappingsPage />} />
               <Route path="/mappings/new" element={<NewMappingPage />} />
               <Route path="/mappings/:mappingId" element={<NewMappingPage />} />
               <Route path="/mappings/:mappingId/columns" element={<ColumnMappingPage />} />
               <Route path="/mappings/:mappingId/schedule" element={<SchedulingPage />} />
               <Route path="/schema" element={<SchemaPage />} />
-              <Route path="/schema/new" element={<SchemaFormPage />} />
-              <Route path="/schema/:id" element={<SchemaFormPage />} />
+              <Route path="/schema/new" element={<SchemaPage />} />
+              <Route path="/schema/:id" element={<SchemaPage />} />
               <Route path="/schema/preview" element={<SchemaPreviewPage />} />
               <Route path="/schema/preview/:tableName" element={<SchemaPreviewPage />} />
               <Route path="/settings" element={<SettingsPage />} />

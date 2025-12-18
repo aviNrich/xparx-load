@@ -6,11 +6,10 @@ import { Pencil, Trash2, Table2, Eye } from 'lucide-react';
 
 interface SchemaListProps {
   schemas: TableSchema[];
-  onEdit: (schema: TableSchema) => void;
   onDelete: (schema: TableSchema) => void;
 }
 
-export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
+export function SchemaList({ schemas, onDelete }: SchemaListProps) {
 
   if (schemas.length === 0) {
     return (
@@ -104,13 +103,15 @@ export function SchemaList({ schemas, onEdit, onDelete }: SchemaListProps) {
                       </Link>
                     </Button>
                     <Button
+                      asChild
                       size="sm"
                       variant="outline"
-                      onClick={() => onEdit(schema)}
                       className="border-neutral-200 hover:bg-neutral-50"
                       title="Edit schema"
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Link to={`/schema/${schema._id}`}>
+                        <Pencil className="h-3 w-3" />
+                      </Link>
                     </Button>
                     <Button
                       size="sm"
