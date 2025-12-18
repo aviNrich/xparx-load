@@ -146,7 +146,12 @@ export function SchedulingPage() {
       if (result.status === 'success') {
         setSuccess(`Successfully executed! ${result.rows_written} rows written to ${result.delta_table_path}`);
       } else {
-        setError(`Execution failed: ${result.error_message}`);
+        // Show error message and stack trace if available
+        let errorDisplay = `Execution failed at stage "${result.error_stage || 'unknown'}":\n${result.error_message}`;
+        if (result.error_stack_trace) {
+          errorDisplay += `\n\nStack Trace:\n${result.error_stack_trace}`;
+        }
+        setError(errorDisplay);
       }
     } catch (err) {
       console.error('Failed to execute mapping:', err);

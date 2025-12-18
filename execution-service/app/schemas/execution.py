@@ -20,6 +20,7 @@ class ExecutionResponse(BaseModel):
     execution_time: datetime = Field(..., description="Timestamp of execution")
     delta_table_path: Optional[str] = Field(None, description="Path to Delta Lake table")
     error_message: Optional[str] = Field(None, description="Error message if execution failed")
+    error_stack_trace: Optional[str] = Field(None, description="Full error stack trace if execution failed")
     error_stage: Optional[str] = Field(None, description="Stage where error occurred if execution failed")
     target_write_status: Optional[str] = Field(None, description="Status of target write operation")
     rows_written_to_target: Optional[int] = Field(None, description="Number of rows written to target database")

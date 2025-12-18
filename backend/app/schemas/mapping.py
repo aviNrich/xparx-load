@@ -86,10 +86,16 @@ ColumnMapping = Annotated[
 ]
 
 
+# NEW: Schema configuration (multiple schemas support)
+class SchemaConfiguration(BaseModel):
+    schema_id: str
+    column_mappings: List[ColumnMapping]
+
+
 class ColumnMappingConfigurationBase(BaseModel):
     mapping_id: str
-    target_schema_id: str
-    column_mappings: List[ColumnMapping]
+    # NEW: Support array of schema configurations
+    target_schemas: List[SchemaConfiguration]
 
 
 class ColumnMappingCreate(ColumnMappingConfigurationBase):

@@ -8,6 +8,7 @@ from pyspark.sql import SparkSession
 from functools import reduce
 from ..utils.encryption import decrypt_password
 from ..services.delta_writer import get_spark_session
+import pandas as pd
 import os
 
 router = APIRouter(prefix="/preview", tags=["preview"])
@@ -131,9 +132,24 @@ def preview_data(request: PreviewRequest, db: Database = Depends(get_database)):
         # Convert to pandas for easy serialization
         pandas_df = df.toPandas()
 
-        # Format response
+        # Format response - convert to JSON-serializable types
         columns = pandas_df.columns.tolist()
-        rows = pandas_df.fillna("").values.tolist()
+
+        # Replace NaN/None with None, convert numpy types to native Python types
+        rows = []
+        for _, row in pandas_df.iterrows():
+            row_list = []
+            for val in row:
+                # Handle NaN, None, and numpy types
+                if pd.isna(val):
+                    row_list.append(None)
+                elif isinstance(val, (pd.Timestamp, pd.DatetimeTZDtype)):
+                    row_list.append(str(val))
+                elif hasattr(val, 'item'):  # numpy types
+                    row_list.append(val.item())
+                else:
+                    row_list.append(val)
+            rows.append(row_list)
 
         return PreviewResponse(columns=columns, rows=rows, row_count=len(rows))
 

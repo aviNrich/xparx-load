@@ -63,11 +63,26 @@ export interface JoinMapping {
 
 export type ColumnMapping = DirectMapping | SplitMapping | JoinMapping;
 
+// NEW: Schema configuration for multiple schemas support
+export interface SchemaConfiguration {
+  schema_id: string;
+  column_mappings: ColumnMapping[];
+}
+
 export interface ColumnMappingConfiguration {
   _id?: string;
   mapping_id: string;
-  target_schema_id: string;
-  column_mappings: ColumnMapping[];
+  target_schemas: SchemaConfiguration[];  // NEW: Array of schema configs
+  created_at?: string;
+  updated_at?: string;
+}
+
+// BACKWARD COMPATIBILITY: Old format (will be removed after migration)
+export interface LegacyColumnMappingConfiguration {
+  _id?: string;
+  mapping_id: string;
+  target_schema_id: string;  // OLD: Single schema
+  column_mappings: ColumnMapping[];  // OLD: Single array
   created_at?: string;
   updated_at?: string;
 }

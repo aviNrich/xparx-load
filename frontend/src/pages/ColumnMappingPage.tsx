@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Stepper, Step } from '../components/ui/stepper';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { ArrowLeft, Loader2, AlertCircle, Save } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Save, Plus, X } from 'lucide-react';
 import { mappingAPI, columnMappingAPI } from '../services/api';
 import { schemaAPI } from '../services/api';
-import { Mapping, SqlPreviewResponse, ColumnMapping, ColumnMappingConfiguration } from '../types/mapping';
+import { Mapping, SqlPreviewResponse, ColumnMapping, ColumnMappingConfiguration, SchemaConfiguration } from '../types/mapping';
 import { TableSchema } from '../types/schema';
 import { ColumnMappingList } from '../components/mappings/ColumnMappingList';
 
@@ -42,9 +41,15 @@ export function ColumnMappingPage() {
   const [mapping, setMapping] = useState<Mapping | null>(null);
   const [previewData, setPreviewData] = useState<SqlPreviewResponse | null>(null);
   const [schemas, setSchemas] = useState<TableSchema[]>([]);
-  const [selectedSchemaId, setSelectedSchemaId] = useState<string>('');
-  const [selectedSchema, setSelectedSchema] = useState<TableSchema | null>(null);
-  const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([]);
+
+  // NEW: Multi-schema support
+  interface SchemaConfigState {
+    schema_id: string;
+    schema: TableSchema;
+    column_mappings: ColumnMapping[];
+  }
+  const [schemaConfigs, setSchemaConfigs] = useState<SchemaConfigState[]>([]);
+  const [activeSchemaIndex, setActiveSchemaIndex] = useState<number>(0);
   const [existingConfigId, setExistingConfigId] = useState<string | undefined>();
 
   // Load initial data
@@ -80,12 +85,43 @@ export function ColumnMappingPage() {
           const existingConfig = await columnMappingAPI.get(mappingId);
           if (existingConfig) {
             setExistingConfigId(existingConfig._id);
-            setSelectedSchemaId(existingConfig.target_schema_id);
-            setColumnMappings(existingConfig.column_mappings);
 
-            // Load the selected schema
-            const schema = await schemaAPI.get(existingConfig.target_schema_id);
-            setSelectedSchema(schema);
+            // BACKWARD COMPATIBILITY: Convert old format to new
+            const rawConfig = existingConfig as any;
+            let configsToLoad: SchemaConfiguration[];
+
+            if (rawConfig.target_schemas) {
+              // NEW format
+              configsToLoad = rawConfig.target_schemas;
+            } else if (rawConfig.target_schema_id) {
+              // OLD format - convert to new
+              configsToLoad = [{
+                schema_id: rawConfig.target_schema_id,
+                column_mappings: rawConfig.column_mappings || []
+              }];
+            } else {
+              configsToLoad = [];
+            }
+
+            // Load all schemas for the configs
+            const loadedConfigs: SchemaConfigState[] = [];
+            for (const config of configsToLoad) {
+              try {
+                const schema = await schemaAPI.get(config.schema_id);
+                loadedConfigs.push({
+                  schema_id: config.schema_id,
+                  schema: schema,
+                  column_mappings: config.column_mappings
+                });
+              } catch (err) {
+                console.error(`Failed to load schema ${config.schema_id}:`, err);
+              }
+            }
+
+            setSchemaConfigs(loadedConfigs);
+            if (loadedConfigs.length > 0) {
+              setActiveSchemaIndex(0);
+            }
           }
         } catch (err: any) {
           // Ignore 404 errors - it just means no config exists yet
@@ -104,111 +140,130 @@ export function ColumnMappingPage() {
     loadData();
   }, [mappingId]);
 
-  // Handle schema selection
-  const handleSchemaSelect = async (schemaId: string) => {
+  // Handle adding a new schema
+  const handleAddSchema = async (schemaId: string) => {
     try {
-      setSelectedSchemaId(schemaId);
+      // Check if schema already added
+      if (schemaConfigs.some(config => config.schema_id === schemaId)) {
+        setError('This schema has already been added');
+        return;
+      }
+
       const schema = await schemaAPI.get(schemaId);
-      setSelectedSchema(schema);
-      // Reset mappings when schema changes
-      setColumnMappings([]);
+      const newConfig: SchemaConfigState = {
+        schema_id: schemaId,
+        schema: schema,
+        column_mappings: []
+      };
+
+      setSchemaConfigs([...schemaConfigs, newConfig]);
+      setActiveSchemaIndex(schemaConfigs.length);
+      setError(null);
     } catch (err) {
       console.error('Failed to load schema:', err);
       setError(err instanceof Error ? err.message : 'Failed to load schema');
     }
   };
 
-  // Handle save
+  // Handle removing a schema
+  const handleRemoveSchema = (index: number) => {
+    const newConfigs = schemaConfigs.filter((_, i) => i !== index);
+    setSchemaConfigs(newConfigs);
+    if (activeSchemaIndex >= newConfigs.length) {
+      setActiveSchemaIndex(Math.max(0, newConfigs.length - 1));
+    }
+  };
+
+  // Handle updating mappings for active schema
+  const handleMappingsChange = (mappings: ColumnMapping[]) => {
+    const newConfigs = [...schemaConfigs];
+    newConfigs[activeSchemaIndex].column_mappings = mappings;
+    setSchemaConfigs(newConfigs);
+  };
+
+  // Handle save - ALWAYS saves in NEW format
   const handleSave = async () => {
-    if (!mappingId || !selectedSchemaId || !selectedSchema) {
-      setError('Please select a target schema');
+    if (!mappingId) {
+      setError('Mapping ID is required');
       return;
     }
 
-    // Validate that all mappings have required fields
-    const invalid = columnMappings.some((mapping) => {
-      if (mapping.type === 'direct') {
-        return !mapping.source_column || !mapping.target_field;
-      } else if (mapping.type === 'split') {
-        // Filter out empty strings before validation
-        const validTargetFields = mapping.target_fields.filter(f => f && f.trim() !== '');
-        return (
-          !mapping.source_column ||
-          !mapping.delimiter ||
-          validTargetFields.length === 0
-        );
-      } else if (mapping.type === 'join') {
-        // Filter out empty strings before validation
-        const validSourceColumns = mapping.source_columns.filter(c => c && c.trim() !== '');
-        return (
-          validSourceColumns.length < 2 ||
-          !mapping.target_field
-        );
-      }
-      return false;
-    });
-
-    if (invalid) {
-      // Build specific error message
-      const invalidMappings = columnMappings
-        .map((mapping, index) => {
-          if (mapping.type === 'direct') {
-            if (!mapping.source_column) return `Mapping ${index + 1} (Direct): Select a source column`;
-            if (!mapping.target_field) return `Mapping ${index + 1} (Direct): Select a target field`;
-          } else if (mapping.type === 'split') {
-            const validFields = mapping.target_fields.filter(f => f && f.trim() !== '');
-            if (!mapping.source_column) return `Mapping ${index + 1} (Split): Select a source column`;
-            if (!mapping.delimiter) return `Mapping ${index + 1} (Split): Select a delimiter`;
-            if (validFields.length === 0) return `Mapping ${index + 1} (Split): Add at least one target field`;
-          } else if (mapping.type === 'join') {
-            const validColumns = mapping.source_columns.filter(c => c && c.trim() !== '');
-            if (validColumns.length < 2) return `Mapping ${index + 1} (Join): Add at least 2 source columns`;
-            if (!mapping.target_field) return `Mapping ${index + 1} (Join): Select a target field`;
-          }
-          return null;
-        })
-        .filter(Boolean);
-
-      const errorMsg = invalidMappings.length > 0
-        ? invalidMappings.join('; ')
-        : 'Please complete all mapping fields before saving';
-
-      setError(errorMsg);
+    if (schemaConfigs.length === 0) {
+      setError('Please add at least one target schema');
       return;
+    }
+
+    // Validate all schema configs
+    for (let i = 0; i < schemaConfigs.length; i++) {
+      const config = schemaConfigs[i];
+      const mappings = config.column_mappings;
+
+      // Validate that all mappings have required fields
+      for (let j = 0; j < mappings.length; j++) {
+        const mapping = mappings[j];
+        if (mapping.type === 'direct') {
+          if (!mapping.source_column || !mapping.target_field) {
+            setError(`Schema "${config.schema.name}" - Mapping ${j + 1}: incomplete direct mapping`);
+            setActiveSchemaIndex(i);
+            return;
+          }
+        } else if (mapping.type === 'split') {
+          const validTargetFields = mapping.target_fields.filter(f => f && f.trim() !== '');
+          if (!mapping.source_column || !mapping.delimiter || validTargetFields.length === 0) {
+            setError(`Schema "${config.schema.name}" - Mapping ${j + 1}: incomplete split mapping`);
+            setActiveSchemaIndex(i);
+            return;
+          }
+        } else if (mapping.type === 'join') {
+          const validSourceColumns = mapping.source_columns.filter(c => c && c.trim() !== '');
+          if (validSourceColumns.length < 2 || !mapping.target_field) {
+            setError(`Schema "${config.schema.name}" - Mapping ${j + 1}: incomplete join mapping`);
+            setActiveSchemaIndex(i);
+            return;
+          }
+        }
+      }
     }
 
     try {
       setSaving(true);
       setError(null);
 
-      // Clean up empty strings from mappings before saving
-      const cleanedMappings = columnMappings.map((mapping) => {
-        if (mapping.type === 'split') {
-          return {
-            ...mapping,
-            target_fields: mapping.target_fields.filter(f => f && f.trim() !== '')
-          };
-        } else if (mapping.type === 'join') {
-          return {
-            ...mapping,
-            source_columns: mapping.source_columns.filter(c => c && c.trim() !== '')
-          };
-        }
-        return mapping;
+      // Build NEW format config
+      const target_schemas: SchemaConfiguration[] = schemaConfigs.map(config => {
+        // Clean up empty strings from mappings
+        const cleanedMappings = config.column_mappings.map((mapping) => {
+          if (mapping.type === 'split') {
+            return {
+              ...mapping,
+              target_fields: mapping.target_fields.filter(f => f && f.trim() !== '')
+            };
+          } else if (mapping.type === 'join') {
+            return {
+              ...mapping,
+              source_columns: mapping.source_columns.filter(c => c && c.trim() !== '')
+            };
+          }
+          return mapping;
+        });
+
+        return {
+          schema_id: config.schema_id,
+          column_mappings: cleanedMappings
+        };
       });
 
-      const config: Omit<ColumnMappingConfiguration, '_id' | 'created_at' | 'updated_at'> = {
+      const newConfig: Omit<ColumnMappingConfiguration, '_id' | 'created_at' | 'updated_at'> = {
         mapping_id: mappingId,
-        target_schema_id: selectedSchemaId,
-        column_mappings: cleanedMappings,
+        target_schemas: target_schemas,
       };
 
       if (existingConfigId) {
         // Update existing config
-        await columnMappingAPI.update(config);
+        await columnMappingAPI.update(newConfig);
       } else {
         // Create new config
-        const created = await columnMappingAPI.create(config);
+        const created = await columnMappingAPI.create(newConfig);
         setExistingConfigId(created._id);
       }
 
@@ -266,7 +321,7 @@ export function ColumnMappingPage() {
               <Button
                 type="button"
                 onClick={handleSave}
-                disabled={saving || !selectedSchemaId || columnMappings.length === 0}
+                disabled={saving || schemaConfigs.length === 0}
                 size="sm"
                 className="bg-primary-500 hover:bg-primary-600"
               >
@@ -311,78 +366,119 @@ export function ColumnMappingPage() {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              {/* Target Schema Selection */}
+              {/* Add New Schema Section */}
               <div className="bg-white rounded-xl border border-neutral-200 p-6">
                 <h2 className="text-lg font-semibold text-neutral-900 mb-4">
-                  Select Ontology
+                  Add Ontology
                 </h2>
-                <div className="max-w-md">
-                  
-                  <Select value={selectedSchemaId} onValueChange={handleSchemaSelect}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select a target schema...">
-                        {selectedSchema && (
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{selectedSchema.name}</span>
-                            <span className="text-xs text-neutral-500">
-                              {selectedSchema.fields.length} fields
-                            </span>
-                          </div>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {schemas.map((schema) => (
-                        <SelectItem key={schema._id} value={schema._id}>
-                          {schema.name}
-                          {schema.description && (
-                            <span className="text-xs text-neutral-500 ml-2">
-                              - {schema.description}
-                            </span>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedSchema && (
-                  <div className="mt-4 pt-4 border-t border-neutral-200">
-                    <p className="text-sm font-medium text-neutral-700 mb-2">
-                      Schema Fields ({selectedSchema.fields.length}):
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedSchema.fields.map((field) => (
-                        <div
-                          key={field.name}
-                          className="bg-neutral-100 rounded px-2 py-1 text-xs"
-                        >
-                          <span className="font-medium text-neutral-900">{field.name}</span>
-                          <span className="text-neutral-600"> ({field.field_type})</span>
-                        </div>
-                      ))}
-                    </div>
+                <div className="flex gap-3 items-end max-w-md">
+                  <div className="flex-1">
+                    <Select
+                      value=""
+                      onValueChange={handleAddSchema}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a target schema to add..."/>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {schemas
+                          .filter(s => !schemaConfigs.some(c => c.schema_id === s._id))
+                          .map((schema) => (
+                            <SelectItem key={schema._id} value={schema._id}>
+                              {schema.name}
+                              {schema.description && (
+                                <span className="text-xs text-neutral-500 ml-2">
+                                  - {schema.description}
+                                </span>
+                              )}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </Button>
+                </div>
               </div>
 
-              {/* Column Mappings */}
-              {selectedSchema && previewData && (
-                <div className="bg-white rounded-xl border border-neutral-200 p-6">
-                  <ColumnMappingList
-                    mappings={columnMappings}
-                    sourceColumns={previewData.columns}
-                    targetFields={selectedSchema.fields}
-                    sampleData={previewData.rows}
-                    onChange={setColumnMappings}
-                  />
+              {/* Schema Tabs */}
+              {schemaConfigs.length > 0 && (
+                <div className="bg-white rounded-xl border border-neutral-200">
+                  {/* Tab Headers */}
+                  <div className="flex border-b border-neutral-200 overflow-x-auto">
+                    {schemaConfigs.map((config, index) => (
+                      <button
+                        key={config.schema_id}
+                        onClick={() => setActiveSchemaIndex(index)}
+                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                          activeSchemaIndex === index
+                            ? 'border-primary-500 text-primary-600'
+                            : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                        }`}
+                      >
+                        <span>{config.schema.name}</span>
+                        <span className="text-xs text-neutral-500">
+                          ({config.column_mappings.length} mappings)
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveSchema(index);
+                          }}
+                          className="ml-1 p-0.5 hover:bg-neutral-200 rounded"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Active Tab Content */}
+                  {schemaConfigs[activeSchemaIndex] && previewData && (
+                    <div className="p-6">
+                      {/* Schema Info */}
+                      <div className="mb-6 pb-4 border-b border-neutral-200">
+                        <p className="text-sm font-medium text-neutral-700 mb-2">
+                          Schema Fields ({schemaConfigs[activeSchemaIndex].schema.fields.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {schemaConfigs[activeSchemaIndex].schema.fields.map((field) => (
+                            <div
+                              key={field.name}
+                              className="bg-neutral-100 rounded px-2 py-1 text-xs"
+                            >
+                              <span className="font-medium text-neutral-900">{field.name}</span>
+                              <span className="text-neutral-600"> ({field.field_type})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Column Mappings */}
+                      <ColumnMappingList
+                        mappings={schemaConfigs[activeSchemaIndex].column_mappings}
+                        sourceColumns={previewData.columns}
+                        targetFields={schemaConfigs[activeSchemaIndex].schema.fields}
+                        sampleData={previewData.rows}
+                        onChange={handleMappingsChange}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
-              {!selectedSchemaId && (
+              {schemaConfigs.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-neutral-600">
-                    Please select a target schema to start mapping columns
+                    Please add a target schema to start mapping columns
                   </p>
                 </div>
               )}

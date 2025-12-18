@@ -290,13 +290,14 @@ class MappingService:
         if not mapping:
             raise ValueError(f"Mapping not found: {config.mapping_id}")
 
-        # Validate target schema exists
-        if not ObjectId.is_valid(config.target_schema_id):
-            raise ValueError(f"Invalid schema ID: {config.target_schema_id}")
+        # Validate all target schemas exist
+        for schema_config in config.target_schemas:
+            if not ObjectId.is_valid(schema_config.schema_id):
+                raise ValueError(f"Invalid schema ID: {schema_config.schema_id}")
 
-        schema = self.db.table_schemas.find_one({"_id": ObjectId(config.target_schema_id)})
-        if not schema:
-            raise ValueError(f"Schema not found: {config.target_schema_id}")
+            schema = self.db.table_schemas.find_one({"_id": ObjectId(schema_config.schema_id)})
+            if not schema:
+                raise ValueError(f"Schema not found: {schema_config.schema_id}")
 
         config_dict = config.model_dump()
 
@@ -313,7 +314,12 @@ class MappingService:
             raise Exception(f"Failed to create column mapping: {str(e)}")
 
     def get_column_mapping(self, mapping_id: str) -> Optional[ColumnMappingResponse]:
-        """Get column mapping configuration by mapping_id"""
+        """Get column mapping configuration by mapping_id
+
+        BACKWARD COMPATIBILITY: Converts old format to new format
+        Old: {target_schema_id: str, column_mappings: [...]}
+        New: {target_schemas: [{schema_id: str, column_mappings: [...]}]}
+        """
         if not ObjectId.is_valid(mapping_id):
             raise ValueError(f"Invalid mapping ID: {mapping_id}")
 
@@ -322,28 +328,48 @@ class MappingService:
             return None
 
         config["_id"] = str(config["_id"])
+
+        # BACKWARD COMPATIBILITY: Convert old format to new
+        if "target_schema_id" in config and "target_schemas" not in config:
+            # Old format detected, convert to new
+            config["target_schemas"] = [{
+                "schema_id": config["target_schema_id"],
+                "column_mappings": config.get("column_mappings", [])
+            }]
+            # Remove old fields
+            del config["target_schema_id"]
+            if "column_mappings" in config:
+                del config["column_mappings"]
+
         return ColumnMappingResponse(**config)
 
     def update_column_mapping(self, mapping_id: str, update: ColumnMappingCreate) -> ColumnMappingResponse:
-        """Update existing column mapping configuration"""
+        """Update existing column mapping configuration
+
+        Always saves in NEW format (target_schemas array)
+        """
         if not ObjectId.is_valid(mapping_id):
             raise ValueError(f"Invalid mapping ID: {mapping_id}")
 
-        # Validate target schema if provided
-        if update.target_schema_id:
-            if not ObjectId.is_valid(update.target_schema_id):
-                raise ValueError(f"Invalid schema ID: {update.target_schema_id}")
+        # Validate all target schemas exist
+        for schema_config in update.target_schemas:
+            if not ObjectId.is_valid(schema_config.schema_id):
+                raise ValueError(f"Invalid schema ID: {schema_config.schema_id}")
 
-            schema = self.db.table_schemas.find_one({"_id": ObjectId(update.target_schema_id)})
+            schema = self.db.table_schemas.find_one({"_id": ObjectId(schema_config.schema_id)})
             if not schema:
-                raise ValueError(f"Schema not found: {update.target_schema_id}")
+                raise ValueError(f"Schema not found: {schema_config.schema_id}")
 
         update_dict = update.model_dump()
         update_dict["updated_at"] = datetime.utcnow()
 
+        # Remove old format fields if they exist in DB (clean migration)
         result = self.column_mappings_collection.find_one_and_update(
             {"mapping_id": mapping_id},
-            {"$set": update_dict},
+            {
+                "$set": update_dict,
+                "$unset": {"target_schema_id": "", "column_mappings": ""}  # Remove old fields
+            },
             return_document=True,
             upsert=True  # Create if doesn't exist
         )

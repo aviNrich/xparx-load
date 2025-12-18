@@ -280,10 +280,17 @@ def validate_schema_compatibility(
     new_fields = {field.name: field.dataType for field in new_schema.fields}
 
     # Check for type changes in existing columns
+    # EXCEPTION: entity_root_id and entity_id can change types (they're arbitrary identifiers)
+    type_change_allowed_columns = {"entity_root_id", "entity_id"}
+
     for col_name, existing_type in existing_fields.items():
         if col_name in new_fields:
             new_type = new_fields[col_name]
             if str(existing_type) != str(new_type):
+                # Allow type changes for entity ID columns
+                if col_name in type_change_allowed_columns:
+                    continue
+
                 raise SchemaValidationError(
                     f"Type mismatch for column '{col_name}': "
                     f"expected {existing_type}, but got {new_type}. "
@@ -369,9 +376,12 @@ def write_to_delta_lake(
                 existing_schema, cleaned_df.schema, allow_new_columns=True
             )
 
-            # Write with schema merge
+            # Write with schema merge and overwrite for entity columns
+            # Use overwriteSchema to allow entity_root_id/entity_id type changes
             cleaned_df.write.format("delta").mode("append").option(
                 "mergeSchema", "true"
+            ).option(
+                "overwriteSchema", "true"
             ).save(delta_table_path)
         else:
             # First write - create new table

@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 import uuid
 import traceback
+import sys
 from pyspark.sql import DataFrame, functions as F
 from pyspark.sql.column import Column
 from ..utils.exceptions import (
@@ -76,52 +77,84 @@ class ExecutionService:
         error_stage = None
         delta_table_path = None
         row_count = 0
+        total_rows_written = 0  # For exception handler
 
         try:
             # Step 1: Retrieve mapping configuration
             mapping_config = self._get_mapping_config(mapping_id)
 
-            # Step 2: Extract source data using Spark JDBC
+            # Step 2: Extract source data using Spark JDBC (done once for all schemas)
             error_stage = "extraction"
             source_df = self._extract_source_data(mapping_config)
 
-            # Step 3: Transform data using PySpark operations
-            error_stage = "transformation"
-            transformed_df = self._transform_data(source_df, mapping_config)
+            # Step 3-5: Loop through all target schemas
+            total_rows_written = 0
+            total_rows_to_target = 0
+            all_delta_paths = []
+            all_target_results = []
 
-            # Step 4: Write to Delta Lake
-            error_stage = "delta_write"
-            delta_table_path, row_count = write_to_delta_lake(
-                df=transformed_df,
-                schema_name=mapping_config["target_schema"]["name"],
-                schema_fields=mapping_config["target_schema"]["fields"],
-                mapping_id=mapping_id,
-                run_id=run_id,
-                execution_time=start_time.isoformat(),
-            )
+            print(f"\n{'='*80}", file=sys.stderr)
+            print(f"Starting multi-schema execution for mapping_id={mapping_id}", file=sys.stderr)
+            print(f"Total schemas to process: {len(mapping_config['target_schema_configs'])}", file=sys.stderr)
+            print(f"{'='*80}\n", file=sys.stderr)
 
-            # Step 5: Write to target database
-            error_stage = "target_write"
-            target_result = execute_target_write(
-                {
-                    "run_id": run_id,
-                    "mapping_id": mapping_id,
-                    "status": "success",
-                    "rows_written": row_count,
-                    "execution_time": start_time.isoformat(),
-                    "delta_table_path": delta_table_path,
-                    "schema_handler": mapping_config["target_schema"]["schema_handler"],
-                    "source_id": source_id,
-                }
-            )
+            for idx, schema_config in enumerate(mapping_config["target_schema_configs"]):
+                schema_name = schema_config["target_schema"]["name"]
+                print(f"\n[{idx + 1}/{len(mapping_config['target_schema_configs'])}] Processing schema: {schema_name}", file=sys.stderr)
+
+                # Step 3: Transform data for this schema
+                error_stage = f"transformation_{schema_name}"
+                transformed_df = self._transform_data(source_df, {
+                    "mapping": mapping_config["mapping"],
+                    "connection": mapping_config["connection"],
+                    "column_mappings": schema_config["column_mappings"],
+                    "target_schema": schema_config["target_schema"],
+                })
+
+                # Step 4: Write to Delta Lake for this schema
+                error_stage = f"delta_write_{schema_name}"
+                delta_table_path, row_count = write_to_delta_lake(
+                    df=transformed_df,
+                    schema_name=schema_config["target_schema"]["name"],
+                    schema_fields=schema_config["target_schema"]["fields"],
+                    mapping_id=mapping_id,
+                    run_id=run_id,
+                    execution_time=start_time.isoformat(),
+                )
+
+                all_delta_paths.append(delta_table_path)
+                total_rows_written += row_count
+
+                # Step 5: Write to target database for this schema
+                error_stage = f"target_write_{schema_name}"
+                target_result = execute_target_write(
+                    {
+                        "run_id": run_id,
+                        "mapping_id": mapping_id,
+                        "status": "success",
+                        "rows_written": row_count,
+                        "execution_time": start_time.isoformat(),
+                        "delta_table_path": delta_table_path,
+                        "schema_handler": schema_config["target_schema"]["schema_handler"],
+                        "source_id": source_id,
+                    }
+                )
+
+                all_target_results.append(target_result)
+                total_rows_to_target += target_result.get("rows_written_to_target", 0)
+
+                print(f"✓ Completed schema {schema_name}: {row_count} rows written to Delta, {target_result.get('rows_written_to_target', 0)} to target", file=sys.stderr)
 
             # Calculate duration
             end_time = datetime.utcnow()
             duration = (end_time - start_time).total_seconds()
 
-            # Determine final status
-            if target_result["status"] == "failed":
-                final_status = "partial_success"
+            # Determine final status based on all target writes
+            any_failed = any(r["status"] == "failed" for r in all_target_results)
+            all_success = all(r["status"] == "success" for r in all_target_results)
+
+            if any_failed:
+                final_status = "partial_success" if all_success else "partial_success"
             else:
                 final_status = "success"
 
@@ -133,11 +166,11 @@ class ExecutionService:
                         "status": final_status,
                         "end_time": end_time,
                         "duration_seconds": duration,
-                        "rows_written_to_delta": row_count,
-                        "rows_written_to_target": target_result.get("rows_written_to_target", 0),
-                        "delta_table_path": delta_table_path,
-                        "target_write_status": target_result["status"],
-                        "error_message": target_result.get("error_message"),
+                        "rows_written_to_delta": total_rows_written,
+                        "rows_written_to_target": total_rows_to_target,
+                        "delta_table_path": ", ".join(all_delta_paths),  # Comma-separated paths
+                        "target_write_status": "success" if all_success else "partial_success",
+                        "error_message": None,
                         "updated_at": end_time,
                     }
                 }
@@ -148,12 +181,12 @@ class ExecutionService:
                 "mapping_id": mapping_id,
                 "source_id": source_id,
                 "status": final_status,
-                "rows_written": row_count,
+                "rows_written": total_rows_written,
                 "execution_time": start_time,
-                "delta_table_path": delta_table_path,
-                "target_write_status": target_result["status"],
-                "rows_written_to_target": target_result.get("rows_written_to_target", 0),
-                "target_error_message": target_result.get("error_message"),
+                "delta_table_path": ", ".join(all_delta_paths),
+                "target_write_status": "success" if all_success else "partial_success",
+                "rows_written_to_target": total_rows_to_target,
+                "target_error_message": None,
                 "error_message": None,
             }
 
@@ -165,7 +198,16 @@ class ExecutionService:
             # Get stack trace
             stack_trace = traceback.format_exc()
 
-            # Update run record in MongoDB
+            # LOG TO STDOUT with full stack trace
+            print(f"\n{'='*80}", file=sys.stderr)
+            print(f"ERROR in execution for mapping_id={mapping_id}, run_id={run_id}", file=sys.stderr)
+            print(f"Error Stage: {error_stage}", file=sys.stderr)
+            print(f"Error Message: {str(e)}", file=sys.stderr)
+            print(f"Full Stack Trace:", file=sys.stderr)
+            print(stack_trace, file=sys.stderr)
+            print(f"{'='*80}\n", file=sys.stderr)
+
+            # Update run record in MongoDB with error_message AND stack trace
             self.mapping_runs_collection.update_one(
                 {"run_id": run_id},
                 {
@@ -173,25 +215,27 @@ class ExecutionService:
                         "status": "failed",
                         "end_time": end_time,
                         "duration_seconds": duration,
-                        "rows_written_to_delta": row_count,
+                        "rows_written_to_delta": total_rows_written,  # Use total for multi-schema
                         "delta_table_path": delta_table_path,
                         "error_stage": error_stage,
                         "error_message": str(e),
-                        "error_stack_trace": stack_trace,
+                        "error_stack_trace": stack_trace,  # Already saving to MongoDB
                         "updated_at": end_time,
                     }
                 }
             )
 
+            # Return response with error_message AND stack_trace
             return {
                 "run_id": run_id,
                 "mapping_id": mapping_id,
                 "source_id": source_id,
                 "status": "failed",
-                "rows_written": row_count,
+                "rows_written": total_rows_written,  # Use total for multi-schema
                 "execution_time": start_time,
                 "delta_table_path": delta_table_path,
                 "error_message": str(e),
+                "error_stack_trace": stack_trace,  # Include in response
                 "error_stage": error_stage,
             }
 
@@ -220,20 +264,58 @@ class ExecutionService:
                 f"Column mapping not found for mapping: {mapping_id}"
             )
 
-        # Get target schema
-        target_schema = self.schemas_collection.find_one(
-            {"_id": ObjectId(column_mapping["target_schema_id"])}
-        )
-        if not target_schema:
-            raise SchemaNotFoundError(
-                f"Target schema not found: {column_mapping['target_schema_id']}"
+        # BACKWARD COMPATIBILITY: Handle both old and new formats
+        # NEW format: target_schemas (array of schema configs)
+        # OLD format: target_schema_id (single schema)
+        target_schema_configs = []
+
+        if "target_schemas" in column_mapping and column_mapping["target_schemas"]:
+            # NEW format - multi-schema support
+            for schema_config in column_mapping["target_schemas"]:
+                target_schema_id = schema_config["schema_id"]
+                column_mappings_list = schema_config["column_mappings"]
+
+                # Get target schema from DB
+                target_schema = self.schemas_collection.find_one(
+                    {"_id": ObjectId(target_schema_id)}
+                )
+                if not target_schema:
+                    raise SchemaNotFoundError(
+                        f"Target schema not found: {target_schema_id}"
+                    )
+
+                target_schema_configs.append({
+                    "column_mappings": column_mappings_list,
+                    "target_schema": target_schema,
+                })
+
+        elif "target_schema_id" in column_mapping:
+            # OLD format - single schema
+            target_schema_id = column_mapping["target_schema_id"]
+            column_mappings_list = column_mapping["column_mappings"]
+
+            # Get target schema from DB
+            target_schema = self.schemas_collection.find_one(
+                {"_id": ObjectId(target_schema_id)}
+            )
+            if not target_schema:
+                raise SchemaNotFoundError(
+                    f"Target schema not found: {target_schema_id}"
+                )
+
+            target_schema_configs.append({
+                "column_mappings": column_mappings_list,
+                "target_schema": target_schema,
+            })
+        else:
+            raise ColumnMappingNotFoundError(
+                f"Invalid column mapping format: missing 'target_schemas' or 'target_schema_id'"
             )
 
         return {
             "mapping": mapping,
             "connection": connection,
-            "column_mappings": column_mapping["column_mappings"],
-            "target_schema": target_schema,
+            "target_schema_configs": target_schema_configs,  # Now returns array of configs
         }
 
     def _extract_source_data(self, config: Dict[str, Any]) -> DataFrame:
@@ -342,17 +424,17 @@ class ExecutionService:
                 else:
                     raise TransformationError(f"Unknown mapping type: {mapping_type}")
 
-            # Add entity columns if specified
+            # Add entity columns if specified (always cast to string for consistency)
             if mapping.get("entity_root_id_column") and \
                mapping["entity_root_id_column"] in source_df.columns:
                 columns_to_select.append(
-                    F.col(mapping["entity_root_id_column"]).alias("entity_root_id")
+                    F.col(mapping["entity_root_id_column"]).cast("string").alias("entity_root_id")
                 )
 
             if mapping.get("entity_id_column") and \
                mapping["entity_id_column"] in source_df.columns:
                 columns_to_select.append(
-                    F.col(mapping["entity_id_column"]).alias("entity_id")
+                    F.col(mapping["entity_id_column"]).cast("string").alias("entity_id")
                 )
 
             # Apply all transformations in a single select statement

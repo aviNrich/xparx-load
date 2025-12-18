@@ -60,7 +60,7 @@ class TargetHandlers:
             "related_df": related_df,
             "related_table": "industry",
             "table_name": "industry_to_entities",
-            "primary_col": "primary_industry",
+            # "primary_col": "primary_industry",
             "related_poi_col": "entity_id",
         }
 
