@@ -1,10 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Connection } from '../../types/connection';
+import { MappingRun } from '../../types/mappingRun';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
-import { Pencil, Trash2, Database, CheckCircle, XCircle, FileText, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
+import { Pencil, Trash2, Database, CheckCircle, XCircle, FileText, Plus, History } from 'lucide-react';
+import { RunHistoryTable } from '../history/RunHistoryTable';
+import { RunDetailsModal } from '../history/RunDetailsModal';
 
 interface ConnectionListProps {
   connections: Connection[];
@@ -12,6 +16,31 @@ interface ConnectionListProps {
 }
 
 export function ConnectionList({ connections, onDelete }: ConnectionListProps) {
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedRun, setSelectedRun] = useState<MappingRun | null>(null);
+
+  const handleViewHistory = (sourceId: string) => {
+    setSelectedSourceId(sourceId);
+    setHistoryModalOpen(true);
+  };
+
+  const handleRunClick = (run: MappingRun) => {
+    setSelectedRun(run);
+    setDetailsModalOpen(true);
+  };
+
+  const handleDetailsModalClose = () => {
+    setDetailsModalOpen(false);
+    setTimeout(() => setSelectedRun(null), 200);
+  };
+
+  const handleHistoryModalClose = () => {
+    setHistoryModalOpen(false);
+    setTimeout(() => setSelectedSourceId(null), 200);
+  };
+
   // Group connections by type (file vs database)
   const groupedConnections = useMemo(() => {
     const fileConnections = connections.filter(conn => conn.db_type === 'file');
@@ -207,6 +236,15 @@ export function ConnectionList({ connections, onDelete }: ConnectionListProps) {
                           <td className="py-4 px-6">
                             <div className="flex items-center justify-end gap-2">
                               <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleViewHistory(connection._id)}
+                                className="border-neutral-200 hover:bg-neutral-50"
+                                title="View run history"
+                              >
+                                <History className="h-3 w-3" />
+                              </Button>
+                              <Button
                                 asChild
                                 size="sm"
                                 variant="outline"
@@ -236,6 +274,31 @@ export function ConnectionList({ connections, onDelete }: ConnectionListProps) {
           </AccordionItem>
         ))}
       </Accordion>
+
+      <Dialog open={historyModalOpen} onOpenChange={handleHistoryModalClose}>
+        <DialogContent className="max-w-[90vw] max-h-[85vh] bg-white p-0 gap-0 border-none flex flex-col">
+          <div className="px-8 py-6 bg-neutral-50 border-b border-neutral-200">
+            <DialogTitle>Source Run History</DialogTitle>
+            <p className="text-sm text-neutral-600 mt-1">
+              View all execution runs for this source
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto px-8 py-6">
+            {selectedSourceId && (
+              <RunHistoryTable
+                filters={{ source_id: selectedSourceId }}
+                onRunClick={handleRunClick}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <RunDetailsModal
+        run={selectedRun}
+        open={detailsModalOpen}
+        onOpenChange={handleDetailsModalClose}
+      />
     </div>
   );
 }

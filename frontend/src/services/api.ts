@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Connection, ConnectionFormData, TestConnectionResult } from '../types/connection';
 import { TableSchema, TableSchemaFormData, DeltaQueryRequest, DeltaQueryResponse, TableSchemaInfo } from '../types/schema';
 import { TableInfo, SqlPreviewRequest, SqlPreviewResponse, Mapping, MappingFormData, ColumnMappingConfiguration } from '../types/mapping';
+import { MappingRun, MappingRunListResponse, MappingRunFilters, RunStatus } from '../types/mappingRun';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -272,6 +273,32 @@ export const systemSettingsAPI = {
   // Test target database connection
   testTargetDb: async (config: TargetDatabaseConfig): Promise<TestConnectionResult> => {
     const response = await api.post<TestConnectionResult>('/system-settings/target-db/test', config);
+    return response.data;
+  },
+};
+
+// Mapping Run History API
+export const mappingRunAPI = {
+  // List mapping runs with filters and pagination
+  list: async (
+    filters?: MappingRunFilters,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<MappingRunListResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.mapping_id) params.append('mapping_id', filters.mapping_id);
+    if (filters?.source_id) params.append('source_id', filters.source_id);
+    if (filters?.status) params.append('status', filters.status);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+
+    const response = await api.get<MappingRunListResponse>(`/mapping-runs/?${params}`);
+    return response.data;
+  },
+
+  // Get single mapping run by run_id
+  get: async (runId: string): Promise<MappingRun> => {
+    const response = await api.get<MappingRun>(`/mapping-runs/${runId}`);
     return response.data;
   },
 };

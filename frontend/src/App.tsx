@@ -15,6 +15,7 @@ import { SchedulingPage } from './pages/SchedulingPage';
 import { SchemaPage } from './pages/SchemaPage';
 import SchemaPreviewPage from './pages/SchemaPreviewPage';
 import SettingsPage from './pages/SettingsPage';
+import { RunHistoryPage } from './pages/RunHistoryPage';
 import { Toaster } from './components/ui/toaster';
 
 function DashboardPage() {
@@ -148,6 +149,7 @@ function App() {
               <Route path="/mappings/:mappingId" element={<NewMappingPage />} />
               <Route path="/mappings/:mappingId/columns" element={<ColumnMappingPage />} />
               <Route path="/mappings/:mappingId/schedule" element={<SchedulingPage />} />
+              <Route path="/history" element={<RunHistoryPage />} />
               <Route path="/schema" element={<SchemaPage />} />
               <Route path="/schema/new" element={<SchemaPage />} />
               <Route path="/schema/:id" element={<SchemaPage />} />

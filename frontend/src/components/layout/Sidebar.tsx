@@ -1,4 +1,4 @@
-import { LayoutDashboard, Bell, Map, Settings, Database, Eye, Menu } from 'lucide-react';
+import { LayoutDashboard, Bell, Map, Settings, Database, Eye, Menu, History } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
@@ -18,6 +18,7 @@ export function Sidebar({ activeItem, onItemClick, isCollapsed, onToggleCollapse
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { id: 'sources', label: 'Source Manager', icon: Database, path: '/sources' },
     { id: 'mappings', label: 'Mappings', icon: Map, path: '/mappings' },
+    { id: 'history', label: 'Run History', icon: History, path: '/history' },
   ];
 
   const bottomMenuItems = [

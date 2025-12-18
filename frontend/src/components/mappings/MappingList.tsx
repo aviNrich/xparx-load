@@ -2,10 +2,13 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { Mapping } from '../../types/mapping';
+import { MappingRun } from '../../types/mappingRun';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
-import { Pencil, Trash2, Workflow, Plus, Eye, Database } from 'lucide-react';
+import { Pencil, Trash2, Workflow, Plus, Eye, Database, History } from 'lucide-react';
+import { RunHistoryTable } from '../history/RunHistoryTable';
+import { RunDetailsModal } from '../history/RunDetailsModal';
 
 interface MappingListProps {
   mappings: Mapping[];
@@ -15,10 +18,34 @@ interface MappingListProps {
 export function MappingList({ mappings, onDelete }: MappingListProps) {
   const [queryDialogOpen, setQueryDialogOpen] = useState(false);
   const [selectedQuery, setSelectedQuery] = useState<string>('');
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedRun, setSelectedRun] = useState<MappingRun | null>(null);
 
   const handleViewQuery = (query: string) => {
     setSelectedQuery(query);
     setQueryDialogOpen(true);
+  };
+
+  const handleViewHistory = (mappingId: string) => {
+    setSelectedMappingId(mappingId);
+    setHistoryModalOpen(true);
+  };
+
+  const handleRunClick = (run: MappingRun) => {
+    setSelectedRun(run);
+    setDetailsModalOpen(true);
+  };
+
+  const handleDetailsModalClose = () => {
+    setDetailsModalOpen(false);
+    setTimeout(() => setSelectedRun(null), 200);
+  };
+
+  const handleHistoryModalClose = () => {
+    setHistoryModalOpen(false);
+    setTimeout(() => setSelectedMappingId(null), 200);
   };
 
   // Group mappings by source
@@ -174,6 +201,15 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                         <td className="py-4 px-6">
                           <div className="flex items-center justify-end gap-2">
                             <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewHistory(mapping._id)}
+                              className="border-neutral-200 hover:bg-neutral-50"
+                              title="View run history"
+                            >
+                              <History className="h-3 w-3" />
+                            </Button>
+                            <Button
                               asChild
                               size="sm"
                               variant="outline"
@@ -231,6 +267,31 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={historyModalOpen} onOpenChange={handleHistoryModalClose}>
+        <DialogContent className="max-w-[90vw] max-h-[85vh] bg-white p-0 gap-0 border-none flex flex-col">
+          <div className="px-8 py-6 bg-neutral-50 border-b border-neutral-200">
+            <DialogTitle>Mapping Run History</DialogTitle>
+            <p className="text-sm text-neutral-600 mt-1">
+              View all execution runs for this mapping
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto px-8 py-6">
+            {selectedMappingId && (
+              <RunHistoryTable
+                filters={{ mapping_id: selectedMappingId }}
+                onRunClick={handleRunClick}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <RunDetailsModal
+        run={selectedRun}
+        open={detailsModalOpen}
+        onOpenChange={handleDetailsModalClose}
+      />
     </div>
   );
 }
