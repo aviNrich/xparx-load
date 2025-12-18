@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { SchemaForm } from './SchemaForm';
 import { TableSchemaFormData } from '../../types/schema';
@@ -24,14 +24,14 @@ export function SchemaFormModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl bg-white p-0 gap-0 border-none max-h-[85vh] flex flex-col">
         {/* Header - Fixed */}
-        <div className="px-8 py-6 bg-neutral-50 border-b border-neutral-200 flex-shrink-0">
-          <h1 className="text-2xl font-semibold text-neutral-900 mb-2">
+        <DialogHeader className="px-8 py-6 bg-neutral-50 border-b border-neutral-200 flex-shrink-0">
+          <DialogTitle className="text-2xl font-semibold text-neutral-900 mb-2">
             {isEdit ? 'Edit Schema' : 'Create New Schema'}
-          </h1>
+          </DialogTitle>
           <p className="text-sm text-neutral-500">
             {isEdit ? 'Update schema configuration' : 'Define a new table schema'}
           </p>
-        </div>
+        </DialogHeader>
 
         {/* Form Content - Scrollable */}
         <div className="flex-1 overflow-y-auto px-8 py-6 bg-white">

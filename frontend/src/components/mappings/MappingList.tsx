@@ -270,12 +270,12 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
 
       <Dialog open={historyModalOpen} onOpenChange={handleHistoryModalClose}>
         <DialogContent className="max-w-[90vw] max-h-[85vh] bg-white p-0 gap-0 border-none flex flex-col">
-          <div className="px-8 py-6 bg-neutral-50 border-b border-neutral-200">
+          <DialogHeader className="px-8 py-6 bg-neutral-50 border-b border-neutral-200">
             <DialogTitle>Mapping Run History</DialogTitle>
             <p className="text-sm text-neutral-600 mt-1">
               View all execution runs for this mapping
             </p>
-          </div>
+          </DialogHeader>
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {selectedMappingId && (
               <RunHistoryTable

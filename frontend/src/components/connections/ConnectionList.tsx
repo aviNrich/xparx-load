@@ -5,7 +5,7 @@ import { MappingRun } from '../../types/mappingRun';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
-import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Pencil, Trash2, Database, CheckCircle, XCircle, FileText, Plus, History } from 'lucide-react';
 import { RunHistoryTable } from '../history/RunHistoryTable';
 import { RunDetailsModal } from '../history/RunDetailsModal';
@@ -277,12 +277,12 @@ export function ConnectionList({ connections, onDelete }: ConnectionListProps) {
 
       <Dialog open={historyModalOpen} onOpenChange={handleHistoryModalClose}>
         <DialogContent className="max-w-[90vw] max-h-[85vh] bg-white p-0 gap-0 border-none flex flex-col">
-          <div className="px-8 py-6 bg-neutral-50 border-b border-neutral-200">
+          <DialogHeader className="px-8 py-6 bg-neutral-50 border-b border-neutral-200">
             <DialogTitle>Source Run History</DialogTitle>
             <p className="text-sm text-neutral-600 mt-1">
               View all execution runs for this source
             </p>
-          </div>
+          </DialogHeader>
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {selectedSourceId && (
               <RunHistoryTable

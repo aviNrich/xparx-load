@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -48,10 +48,11 @@ export function SchemaForm({ initialData, onSubmit, onCancel, isEdit = false }: 
     control,
     watch,
     setValue,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<SchemaFormValues>({
     resolver: zodResolver(schemaFormSchema),
-    defaultValues: initialData || {
+    defaultValues: {
       name: '',
       schema_handler: '',
       description: '',
@@ -63,6 +64,20 @@ export function SchemaForm({ initialData, onSubmit, onCancel, isEdit = false }: 
     control,
     name: 'fields',
   });
+
+  // Reset form when initialData changes (e.g., when editing a different schema)
+  useEffect(() => {
+    if (initialData) {
+      reset(initialData);
+    } else {
+      reset({
+        name: '',
+        schema_handler: '',
+        description: '',
+        fields: [{ name: '', field_type: 'string', description: '' }],
+      });
+    }
+  }, [initialData, reset]);
 
   const fieldTypes: FieldType[] = ['string', 'integer', 'date', 'boolean'];
 
