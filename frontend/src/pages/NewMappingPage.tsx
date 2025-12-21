@@ -41,13 +41,13 @@ export function NewMappingPage() {
   const [sqlManuallyEdited, setSqlManuallyEdited] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingTableSelection, setPendingTableSelection] = useState<TableInfo | null>(null);
   const [sourceTable, setSourceTable] = useState('');
   const [entityColumnDialogOpen, setEntityColumnDialogOpen] = useState(false);
   const [existingEntityRootIdColumn, setExistingEntityRootIdColumn] = useState<string | undefined>(undefined);
   const [existingEntityIdColumn, setExistingEntityIdColumn] = useState<string | undefined>(undefined);
+  const [isAdvancedMode, setIsAdvancedMode] = useState(false);
 
   const {
     register,
@@ -84,7 +84,7 @@ export function NewMappingPage() {
     }
   }, [sourceFromQuery, isEditMode, connections, sourceConnectionId, setValue]);
 
-  // Set default query for file uploads
+  // Set default query for file uploads and auto-run preview in simple mode
   useEffect(() => {
     // Skip in edit mode
     if (isEditMode) return;
@@ -95,9 +95,42 @@ export function NewMappingPage() {
         setValue('sql_query', 'select * from file');
         setPreviewData(null);
         setPreviewError(null);
+
+        // Auto-run preview in simple mode
+        if (!isAdvancedMode) {
+          // Small delay to ensure setValue completes
+          setTimeout(async () => {
+            // Call preview API directly with the query we just set
+            setIsPreviewing(true);
+            setPreviewError(null);
+            setPreviewData(null);
+
+            try {
+              const result = await mappingAPI.previewSql({
+                connection_id: sourceConnectionId,
+                sql_query: 'select * from file',
+              });
+              setPreviewData(result);
+            } catch (error: any) {
+              const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to preview query';
+              setPreviewError(errorMessage);
+            } finally {
+              setIsPreviewing(false);
+            }
+          }, 100);
+        }
       }
     }
-  }, [isFileUpload, sourceConnectionId, isEditMode, sqlManuallyEdited, sqlQuery, setValue]);
+  }, [isFileUpload, sourceConnectionId, isEditMode, sqlManuallyEdited, isAdvancedMode]);
+
+  // Handle mode switching - auto-run preview when switching to simple mode
+  useEffect(() => {
+    // Skip in edit mode or if no connection is selected
+    if (isEditMode || !sourceConnectionId) return;
+
+    // Only run when switching TO simple mode (not on initial render)
+    // This effect is intentionally limited to prevent unnecessary re-runs
+  }, [isAdvancedMode]); // Only trigger when mode changes
 
   // Load existing mapping if mappingId is provided
   useEffect(() => {
@@ -168,11 +201,40 @@ export function NewMappingPage() {
           setPendingTableSelection(selectedTable);
           setConfirmDialogOpen(true);
         } else {
-          generateSqlQuery(selectedTable);
+          // Generate SQL query
+          const schemaPrefix = selectedTable.table_schema ? `${selectedTable.table_schema}.` : '';
+          const tableName = `${schemaPrefix}${selectedTable.table_name}`;
+          const query = `SELECT * FROM ${tableName}`;
+          setValue('sql_query', query);
+          setPreviewData(null);
+          setPreviewError(null);
+
+          // Auto-run preview in simple mode for SQL sources
+          if (!isAdvancedMode && !isFileUpload && sourceConnectionId) {
+            // Small delay to ensure setValue completes and run preview directly
+            setTimeout(async () => {
+              setIsPreviewing(true);
+              setPreviewError(null);
+              setPreviewData(null);
+
+              try {
+                const result = await mappingAPI.previewSql({
+                  connection_id: sourceConnectionId,
+                  sql_query: query,
+                });
+                setPreviewData(result);
+              } catch (error: any) {
+                const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to preview query';
+                setPreviewError(errorMessage);
+              } finally {
+                setIsPreviewing(false);
+              }
+            }, 100);
+          }
         }
       }
     }
-  }, [sourceTable, tables, isEditMode]);
+  }, [sourceTable, tables, isEditMode, sqlManuallyEdited, sqlQuery, isAdvancedMode, isFileUpload, sourceConnectionId, setValue]);
 
   const generateSqlQuery = (table: TableInfo) => {
     const schemaPrefix = table.table_schema ? `${table.table_schema}.` : '';
@@ -205,8 +267,10 @@ export function NewMappingPage() {
   };
 
   const handlePreview = async () => {
+    // Validate inputs
     if (!sourceConnectionId || !sqlQuery) {
-      setPreviewError('Please select a connection and enter a SQL query');
+      // Only show error if we're in a state where preview is expected
+      // Don't show error during initial load or when connection is not yet selected
       return;
     }
 
@@ -367,6 +431,7 @@ export function NewMappingPage() {
                       setSqlManuallyEdited(false);
                       setPreviewData(null);
                       setPreviewError(null);
+                      setIsAdvancedMode(false); // Reset to simple mode on connection change
                     }}
                     placeholder={connectionsLoading ? "Loading..." : "Select connection..."}
                     searchPlaceholder="Search connections..."
@@ -379,11 +444,11 @@ export function NewMappingPage() {
                 )}
               </div>
 
-              {/* Source Table - Hidden for file uploads */}
-              {sourceConnectionId && !isFileUpload && (
+              {/* Source Table - Hidden for file uploads and in advanced mode */}
+              {sourceConnectionId && !isFileUpload && !isAdvancedMode && (
                 <div>
                   <Label htmlFor="source_table" className="text-neutral-700 text-xs">
-                    Source Table <span className="text-neutral-400 text-xs">(Optional)</span>
+                    Source Table <span className="text-red-500">*</span>
                   </Label>
                   <div className="mt-1">
                     <Combobox
@@ -459,62 +524,102 @@ export function NewMappingPage() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {sourceConnectionId ? (
               <>
-                {/* SQL Editor Section */}
-                <div className="flex-shrink-0 bg-white border-b border-neutral-200 p-4">
-                  <div className="flex items-center justify-between mb-2">
+                {/* Mode Toggle Header - Always visible at the top */}
+                <div className="flex-shrink-0 bg-neutral-50 border-b border-neutral-200 px-4 py-3">
+                  <div className="flex items-center justify-between">
                     <Label className="text-neutral-700 text-xs font-semibold">
-                      SQL Query <span className="text-red-500">*</span>
+                      {isAdvancedMode ? 'SQL Query' : 'Preview'}
                     </Label>
-                    {sqlQuery && (
-                      <Button
-                        type="button"
-                        onClick={handlePreview}
-                        disabled={isPreviewing || !sourceConnectionId}
-                        size="sm"
-                        className="bg-primary-600 hover:bg-primary-700"
-                      >
-                        {isPreviewing ? (
-                          <>
-                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                            Running...
-                          </>
-                        ) : (
-                          <>
-                            <Play className="mr-1 h-3 w-3" />
-                            Run Query
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const newMode = !isAdvancedMode;
+                        setIsAdvancedMode(newMode);
 
-                  <div className="border border-neutral-300 rounded-md overflow-hidden" style={{ height: '280px' }}>
-                    <Editor
-                      height="100%"
-                      language="sql"
-                      theme="vs-light"
-                      value={sqlQuery}
-                      onChange={handleSqlChange}
-                      options={{
-                        minimap: { enabled: false },
-                        scrollBeyondLastLine: false,
-                        fontSize: 13,
-                        lineNumbers: 'on',
-                        roundedSelection: false,
-                        readOnly: false,
-                        automaticLayout: true,
-                        padding: { top: 8, bottom: 8 },
+                        // When switching to simple mode
+                        if (!newMode) {
+                          setSqlManuallyEdited(false);
+
+                          // For SQL sources (not file uploads), clear the query if it was manually edited
+                          // This forces the user to select a table again in simple mode
+                          if (!isFileUpload && sqlManuallyEdited) {
+                            setValue('sql_query', '');
+                            setSourceTable('');
+                            setPreviewData(null);
+                            setPreviewError(null);
+                          } else {
+                            // For file uploads or if query wasn't manually edited, re-run preview
+                            if (sqlQuery && sqlQuery.trim() !== '') {
+                              await handlePreview();
+                            }
+                          }
+                        }
                       }}
-                    />
+                      className="text-xs text-primary-600 hover:text-primary-700 hover:underline font-medium"
+                    >
+                      {isAdvancedMode ? 'Switch to Simple Mode' : 'Switch to Advanced Mode'}
+                    </button>
                   </div>
-                  {errors.sql_query && (
-                    <p className="text-xs text-red-500 mt-1">{errors.sql_query.message}</p>
-                  )}
                 </div>
 
+                {/* SQL Editor Section - Hidden in simple mode */}
+                {isAdvancedMode && (
+                  <div className="flex-shrink-0 bg-neutral-50 border-b border-neutral-200 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-neutral-700 text-xs font-semibold">
+                        SQL Query <span className="text-red-500">*</span>
+                      </Label>
+                      {sqlQuery && (
+                        <Button
+                          type="button"
+                          onClick={handlePreview}
+                          disabled={isPreviewing || !sourceConnectionId}
+                          size="sm"
+                          className="bg-primary-600 hover:bg-primary-700"
+                        >
+                          {isPreviewing ? (
+                            <>
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              Running...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="mr-1 h-3 w-3" />
+                              Run Query
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="border border-neutral-300 rounded-md overflow-hidden" style={{ height: '280px' }}>
+                      <Editor
+                        height="100%"
+                        language="sql"
+                        theme="vs-light"
+                        value={sqlQuery}
+                        onChange={handleSqlChange}
+                        options={{
+                          minimap: { enabled: false },
+                          scrollBeyondLastLine: false,
+                          fontSize: 13,
+                          lineNumbers: 'on',
+                          roundedSelection: false,
+                          readOnly: false,
+                          automaticLayout: true,
+                          padding: { top: 8, bottom: 8 },
+                        }}
+                      />
+                    </div>
+                    {errors.sql_query && (
+                      <p className="text-xs text-red-500 mt-1">{errors.sql_query.message}</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Preview Results Section */}
-                <div className="flex-1 overflow-hidden bg-neutral-50 p-4">
-                  <div className="h-full">
+                <div className="flex-1 overflow-hidden bg-neutral-50 p-4 flex flex-col">
+                  <div className="flex-1 min-h-0">
                     {(previewData || isPreviewing) ? (
                       <SqlPreviewTable
                         columns={previewData?.columns || []}
@@ -525,7 +630,9 @@ export function NewMappingPage() {
                       <div className="h-full flex items-center justify-center bg-white rounded-xl border border-neutral-200 border-dashed">
                         <div className="text-center">
                           <Play className="mx-auto h-12 w-12 text-neutral-300 mb-3" />
-                          <p className="text-sm text-neutral-500">Run query to see preview</p>
+                          <p className="text-sm text-neutral-500">
+                            {isFileUpload ? 'Loading preview...' : 'Run query to see preview'}
+                          </p>
                           <p className="text-xs text-neutral-400 mt-1">Results will appear here</p>
                         </div>
                       </div>
@@ -606,7 +713,11 @@ export function NewMappingPage() {
 
             <Button
               type="button"
-              disabled={!previewData || isSaving}
+              disabled={
+                !previewData ||
+                isSaving ||
+                (!isAdvancedMode && !isFileUpload && !sourceTable) // In simple mode for SQL sources, require table selection
+              }
               size="default"
               className="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6"
               onClick={isEditMode ? handleNextClick : handleSubmit(onSubmit)}

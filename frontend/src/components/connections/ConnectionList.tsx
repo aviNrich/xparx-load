@@ -236,6 +236,18 @@ export function ConnectionList({ connections, onDelete }: ConnectionListProps) {
                           <td className="py-4 px-6">
                             <div className="flex items-center justify-end gap-2">
                               <Button
+                                asChild
+                                size="sm"
+                                variant="outline"
+                                className="border-primary-200 text-primary-600 hover:bg-primary-50"
+                                title="Add mapping for this source"
+                              >
+                                <Link to={`/mappings/new?source=${connection._id}`}>
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Add Mapping
+                                </Link>
+                              </Button>
+                              <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleViewHistory(connection._id)}

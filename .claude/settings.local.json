@@ -8,7 +8,8 @@
       "Bash(find:*)",
       "Bash(npm install:*)",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
