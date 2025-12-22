@@ -10,6 +10,7 @@ import { schemaAPI } from '../services/api';
 import { Mapping, SqlPreviewResponse, ColumnMapping, ColumnMappingConfiguration, SchemaConfiguration } from '../types/mapping';
 import { TableSchema } from '../types/schema';
 import { ColumnMappingList } from '../components/mappings/ColumnMappingList';
+import { ColumnMappingDragDrop } from '../components/mappings/ColumnMappingDragDrop';
 
 export function ColumnMappingPage() {
   const navigate = useNavigate();
@@ -33,6 +34,9 @@ export function ColumnMappingPage() {
   const [schemaConfigs, setSchemaConfigs] = useState<SchemaConfigState[]>([]);
   const [activeSchemaIndex, setActiveSchemaIndex] = useState<number>(0);
   const [existingConfigId, setExistingConfigId] = useState<string | undefined>();
+
+  // Mode toggle: 'dragdrop' or 'form'
+  const [viewMode, setViewMode] = useState<'dragdrop' | 'form'>('dragdrop');
 
   // Load initial data
   useEffect(() => {
@@ -144,6 +148,12 @@ export function ColumnMappingPage() {
     const newConfigs = [...schemaConfigs];
     newConfigs[activeSchemaIndex].column_mappings = mappings;
     setSchemaConfigs(newConfigs);
+
+    // If split/join mappings are added, force form mode
+    const hasAdvancedMappings = mappings.some(m => m.type === 'split' || m.type === 'join');
+    if (hasAdvancedMappings && viewMode === 'dragdrop') {
+      setViewMode('form');
+    }
   };
 
   // Handle save - ALWAYS saves in NEW format
@@ -262,7 +272,7 @@ export function ColumnMappingPage() {
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-auto pb-20">
-        <div className="max-w-6xl mx-auto px-6 py-6">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           {loading ? (
             <div className="flex justify-center items-center py-24">
               <div className="text-center">
@@ -281,9 +291,51 @@ export function ColumnMappingPage() {
               )}
               {/* Add New Schema Section */}
               <div className="bg-white rounded-xl border border-neutral-200 p-6">
-                <h2 className="text-lg font-semibold text-neutral-900 mb-4">
-                  Add Ontology
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-neutral-900">
+                    Add Ontology
+                  </h2>
+
+                  {/* Mode Toggle */}
+                  {schemaConfigs.length > 0 && (
+                    <>
+                      {(() => {
+                        const hasAdvancedMappings = schemaConfigs[activeSchemaIndex]?.column_mappings.some(
+                          m => m.type === 'split' || m.type === 'join'
+                        );
+                        return (
+                          <div className="flex items-center gap-2 bg-neutral-100 rounded-lg p-1">
+                            <button
+                              onClick={() => !hasAdvancedMappings && setViewMode('dragdrop')}
+                              disabled={hasAdvancedMappings}
+                              title={hasAdvancedMappings ? 'Drag & Drop mode does not support split/join mappings' : ''}
+                              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                                viewMode === 'dragdrop'
+                                  ? 'bg-white text-primary-600 shadow-sm'
+                                  : hasAdvancedMappings
+                                  ? 'text-neutral-400 cursor-not-allowed'
+                                  : 'text-neutral-600 hover:text-neutral-900'
+                              }`}
+                            >
+                              Drag & Drop
+                            </button>
+                            <button
+                              onClick={() => setViewMode('form')}
+                              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                                viewMode === 'form'
+                                  ? 'bg-white text-primary-600 shadow-sm'
+                                  : 'text-neutral-600 hover:text-neutral-900'
+                              }`}
+                            >
+                              Form
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+
                 <div className="flex gap-3 items-end max-w-md">
                   <div className="flex-1">
                     <Combobox
@@ -340,32 +392,47 @@ export function ColumnMappingPage() {
                   {/* Active Tab Content */}
                   {schemaConfigs[activeSchemaIndex] && previewData && (
                     <div className="p-6">
-                      {/* Schema Info */}
-                      <div className="mb-6 pb-4 border-b border-neutral-200">
-                        <p className="text-sm font-medium text-neutral-700 mb-2">
-                          Schema Fields ({schemaConfigs[activeSchemaIndex].schema.fields.length}):
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {schemaConfigs[activeSchemaIndex].schema.fields.map((field) => (
-                            <div
-                              key={field.name}
-                              className="bg-neutral-100 rounded px-2 py-1 text-xs"
-                            >
-                              <span className="font-medium text-neutral-900">{field.name}</span>
-                              <span className="text-neutral-600"> ({field.field_type})</span>
+                      {viewMode === 'form' ? (
+                        <>
+                          {/* Schema Info */}
+                          <div className="mb-6 pb-4 border-b border-neutral-200">
+                            <p className="text-sm font-medium text-neutral-700 mb-2">
+                              Schema Fields ({schemaConfigs[activeSchemaIndex].schema.fields.length}):
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {schemaConfigs[activeSchemaIndex].schema.fields.map((field) => (
+                                <div
+                                  key={field.name}
+                                  className="bg-neutral-100 rounded px-2 py-1 text-xs"
+                                >
+                                  <span className="font-medium text-neutral-900">{field.name}</span>
+                                  <span className="text-neutral-600"> ({field.field_type})</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          </div>
 
-                      {/* Column Mappings */}
-                      <ColumnMappingList
-                        mappings={schemaConfigs[activeSchemaIndex].column_mappings}
-                        sourceColumns={previewData.columns}
-                        targetFields={schemaConfigs[activeSchemaIndex].schema.fields}
-                        sampleData={previewData.rows}
-                        onChange={handleMappingsChange}
-                      />
+                          {/* Column Mappings - Form View */}
+                          <ColumnMappingList
+                            mappings={schemaConfigs[activeSchemaIndex].column_mappings}
+                            sourceColumns={previewData.columns}
+                            targetFields={schemaConfigs[activeSchemaIndex].schema.fields}
+                            sampleData={previewData.rows}
+                            onChange={handleMappingsChange}
+                          />
+                        </>
+                      ) : (
+                        /* Drag & Drop View */
+                        <div style={{ height: 'calc(100vh - 500px)', minHeight: '500px' }}>
+                          <ColumnMappingDragDrop
+                            mappings={schemaConfigs[activeSchemaIndex].column_mappings}
+                            sourceColumns={previewData.columns}
+                            targetFields={schemaConfigs[activeSchemaIndex].schema.fields}
+                            sampleData={previewData.rows}
+                            onChange={handleMappingsChange}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
