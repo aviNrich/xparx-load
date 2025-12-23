@@ -19,7 +19,8 @@ from ..utils.exceptions import (
     TransformationError,
 )
 from ..utils.encryption import decrypt_password
-from .delta_writer import write_to_delta_lake, get_spark_session
+from .delta_writer import write_to_delta_lake, write_to_silver_lake, get_spark_session
+from .bronze_writer import write_to_bronze_lake, read_from_bronze_lake
 from .target_execution import execute_target_write
 
 
@@ -62,9 +63,16 @@ class ExecutionService:
             "start_time": start_time,
             "end_time": None,
             "duration_seconds": None,
-            "rows_written_to_delta": 0,
+            # Bronze layer tracking
+            "bronze_table_path": None,
+            "rows_written_to_bronze": 0,
+            "bronze_run_id": run_id,
+            # Silver layer tracking (renamed from delta)
+            "rows_written_to_delta": 0,  # Keep old name for compatibility
+            "rows_written_to_silver": 0,
             "rows_written_to_target": 0,
             "delta_table_path": None,
+            "silver_table_paths": None,
             "error_stage": None,
             "error_message": None,
             "error_stack_trace": None,
@@ -87,10 +95,24 @@ class ExecutionService:
             error_stage = "extraction"
             source_df = self._extract_source_data(mapping_config)
 
-            # Step 3-5: Loop through all target schemas
+            # Step 3: Write to bronze layer (raw SQL query result)
+            error_stage = "bronze_write"
+            bronze_table_path, bronze_row_count = write_to_bronze_lake(
+                df=source_df,
+                mapping_id=mapping_id,
+                run_id=run_id,
+                ingestion_time=start_time.isoformat(),
+            )
+            print(f"✓ Bronze layer: {bronze_row_count} rows written to {bronze_table_path}", file=sys.stderr)
+
+            # Step 4: Read from bronze layer (for idempotency)
+            error_stage = "bronze_read"
+            bronze_df = read_from_bronze_lake(bronze_table_path, run_id=run_id)
+
+            # Step 5-7: Loop through all target schemas (silver layer)
             total_rows_written = 0
             total_rows_to_target = 0
-            all_delta_paths = []
+            all_silver_paths = []
             all_target_results = []
 
             print(f"\n{'='*80}", file=sys.stderr)
@@ -102,30 +124,32 @@ class ExecutionService:
                 schema_name = schema_config["target_schema"]["name"]
                 print(f"\n[{idx + 1}/{len(mapping_config['target_schema_configs'])}] Processing schema: {schema_name}", file=sys.stderr)
 
-                # Step 3: Transform data for this schema
+                # Step 5: Transform data from bronze for this schema
                 error_stage = f"transformation_{schema_name}"
-                transformed_df = self._transform_data(source_df, {
+                transformed_df = self._transform_data(bronze_df, {
                     "mapping": mapping_config["mapping"],
                     "connection": mapping_config["connection"],
                     "column_mappings": schema_config["column_mappings"],
                     "target_schema": schema_config["target_schema"],
                 })
 
-                # Step 4: Write to Delta Lake for this schema
-                error_stage = f"delta_write_{schema_name}"
-                delta_table_path, row_count = write_to_delta_lake(
+                # Step 6: Write to silver layer for this schema
+                error_stage = f"silver_write_{schema_name}"
+                silver_run_id = f"{run_id}_silver_{schema_name}"
+                silver_table_path, row_count = write_to_silver_lake(
                     df=transformed_df,
                     schema_name=schema_config["target_schema"]["name"],
                     schema_fields=schema_config["target_schema"]["fields"],
                     mapping_id=mapping_id,
-                    run_id=run_id,
+                    run_id=silver_run_id,
                     execution_time=start_time.isoformat(),
+                    bronze_run_id=run_id,
                 )
 
-                all_delta_paths.append(delta_table_path)
+                all_silver_paths.append(silver_table_path)
                 total_rows_written += row_count
 
-                # Step 5: Write to target database for this schema
+                # Step 7: Write to target database for this schema
                 error_stage = f"target_write_{schema_name}"
                 target_result = execute_target_write(
                     {
@@ -134,7 +158,7 @@ class ExecutionService:
                         "status": "success",
                         "rows_written": row_count,
                         "execution_time": start_time.isoformat(),
-                        "delta_table_path": delta_table_path,
+                        "delta_table_path": silver_table_path,  # Use silver path
                         "schema_handler": schema_config["target_schema"]["schema_handler"],
                         "source_id": source_id,
                     }
@@ -143,7 +167,7 @@ class ExecutionService:
                 all_target_results.append(target_result)
                 total_rows_to_target += target_result.get("rows_written_to_target", 0)
 
-                print(f"✓ Completed schema {schema_name}: {row_count} rows written to Delta, {target_result.get('rows_written_to_target', 0)} to target", file=sys.stderr)
+                print(f"✓ Completed schema {schema_name}: {row_count} rows written to Silver, {target_result.get('rows_written_to_target', 0)} to target", file=sys.stderr)
 
             # Calculate duration
             end_time = datetime.utcnow()
@@ -166,9 +190,15 @@ class ExecutionService:
                         "status": final_status,
                         "end_time": end_time,
                         "duration_seconds": duration,
-                        "rows_written_to_delta": total_rows_written,
+                        # Bronze layer
+                        "bronze_table_path": bronze_table_path,
+                        "rows_written_to_bronze": bronze_row_count,
+                        # Silver layer
+                        "rows_written_to_delta": total_rows_written,  # Keep old field for compatibility
+                        "rows_written_to_silver": total_rows_written,
                         "rows_written_to_target": total_rows_to_target,
-                        "delta_table_path": ", ".join(all_delta_paths),  # Comma-separated paths
+                        "delta_table_path": ", ".join(all_silver_paths),  # Keep old field
+                        "silver_table_paths": ", ".join(all_silver_paths),
                         "target_write_status": "success" if all_success else "partial_success",
                         "error_message": None,
                         "updated_at": end_time,
@@ -181,9 +211,15 @@ class ExecutionService:
                 "mapping_id": mapping_id,
                 "source_id": source_id,
                 "status": final_status,
+                # Bronze layer
+                "bronze_table_path": bronze_table_path,
+                "rows_written_to_bronze": bronze_row_count,
+                # Silver layer
                 "rows_written": total_rows_written,
+                "rows_written_to_silver": total_rows_written,
                 "execution_time": start_time,
-                "delta_table_path": ", ".join(all_delta_paths),
+                "delta_table_path": ", ".join(all_silver_paths),  # Keep old field
+                "silver_table_paths": ", ".join(all_silver_paths),
                 "target_write_status": "success" if all_success else "partial_success",
                 "rows_written_to_target": total_rows_to_target,
                 "target_error_message": None,

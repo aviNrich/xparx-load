@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     # Delta Lake Configuration
     delta_lake_base_path: str = "./delta-lake"
 
+    # Medallion Architecture Paths (derived from base path if not specified)
+    bronze_lake_path: str = "./delta-lake/bronze"
+    silver_lake_path: str = "./delta-lake/silver"
+    gold_lake_path: str = "./delta-lake/gold"  # Future use
+
     # Spark Configuration
     spark_app_name: str = "ETL-Executor"
     spark_master: str = "local[*]"

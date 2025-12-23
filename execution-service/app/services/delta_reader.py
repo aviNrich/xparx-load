@@ -36,12 +36,16 @@ def read_delta_table(
     try:
         spark = get_spark_session()
 
-        # Construct Delta Lake table path
-        delta_table_path = os.path.join(settings.delta_lake_base_path, table_name)
+        # Try new silver path first, fallback to old path for backward compatibility
+        silver_path = os.path.join(settings.delta_lake_base_path, "silver", table_name)
+        old_path = os.path.join(settings.delta_lake_base_path, table_name)
 
-        # Check if table exists
-        if not DeltaTable.isDeltaTable(spark, delta_table_path):
-            raise DeltaWriteError(f"Delta table '{table_name}' does not exist")
+        if DeltaTable.isDeltaTable(spark, silver_path):
+            delta_table_path = silver_path
+        elif DeltaTable.isDeltaTable(spark, old_path):
+            delta_table_path = old_path
+        else:
+            raise DeltaWriteError(f"Delta table '{table_name}' does not exist at silver path or old path")
 
         # Read the Delta table
         df: DataFrame = spark.read.format("delta").load(delta_table_path)
@@ -108,12 +112,16 @@ def get_table_schema(table_name: str) -> Dict[str, Any]:
     try:
         spark = get_spark_session()
 
-        # Construct Delta Lake table path
-        delta_table_path = os.path.join(settings.delta_lake_base_path, table_name)
+        # Try new silver path first, fallback to old path for backward compatibility
+        silver_path = os.path.join(settings.delta_lake_base_path, "silver", table_name)
+        old_path = os.path.join(settings.delta_lake_base_path, table_name)
 
-        # Check if table exists
-        if not DeltaTable.isDeltaTable(spark, delta_table_path):
-            raise DeltaWriteError(f"Delta table '{table_name}' does not exist")
+        if DeltaTable.isDeltaTable(spark, silver_path):
+            delta_table_path = silver_path
+        elif DeltaTable.isDeltaTable(spark, old_path):
+            delta_table_path = old_path
+        else:
+            raise DeltaWriteError(f"Delta table '{table_name}' does not exist at silver path or old path")
 
         # Read the Delta table schema
         df = spark.read.format("delta").load(delta_table_path)

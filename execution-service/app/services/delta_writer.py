@@ -303,6 +303,110 @@ def validate_schema_compatibility(
         raise SchemaValidationError(f"New columns are not allowed: {new_columns}")
 
 
+def write_to_silver_lake(
+    df: DataFrame,
+    schema_name: str,
+    schema_fields: List[Dict[str, str]],
+    mapping_id: str,
+    run_id: str,
+    execution_time: str,
+    bronze_run_id: str,
+) -> tuple[str, int]:
+    """
+    Write Spark DataFrame to silver layer (medallion architecture).
+
+    Silver layer stores transformed data with column mappings applied.
+
+    Args:
+        df: Spark DataFrame containing transformed data (from bronze)
+        schema_name: Name of the target schema (used as table name)
+        schema_fields: Target schema field definitions
+        mapping_id: Mapping ID for metadata
+        run_id: Silver layer run ID for tracking this specific execution
+        execution_time: Execution timestamp for metadata
+        bronze_run_id: Bronze layer run ID (link to source bronze data)
+
+    Returns:
+        Tuple of (silver_table_path, row_count)
+
+    Raises:
+        SchemaValidationError: If schema is incompatible
+        DeltaWriteError: If write operation fails
+    """
+    try:
+        spark = get_spark_session()
+
+        # Add metadata columns using withColumn
+        df = df.withColumn("mapping_id", F.lit(mapping_id))
+        df = df.withColumn("run_id", F.lit(run_id))
+        df = df.withColumn("execution_time", F.lit(execution_time))
+        df = df.withColumn("_silver_bronze_run_id", F.lit(bronze_run_id))
+
+        # Add source_id from entity_id if present
+        if "entity_id" in df.columns:
+            df = df.withColumn("source_id", F.col("entity_id"))
+        else:
+            df = df.withColumn("source_id", F.lit(None).cast("string"))
+
+        # Clean data using Spark transformations
+        cleaned_df = clean_data_for_schema_spark(df, schema_fields)
+
+        # Create expected schema for validation
+        # Note: We need to pass a sample for entity column detection
+        # Get first row as dict for schema creation
+        if cleaned_df.count() > 0:
+            sample_row = cleaned_df.first().asDict()
+            expected_schema = create_spark_schema(schema_fields, [sample_row])
+        else:
+            expected_schema = create_spark_schema(schema_fields, [])
+
+        # Reorder columns to match expected schema
+        expected_columns = [field.name for field in expected_schema.fields]
+        # Only select columns that exist in the DataFrame
+        columns_to_select = [
+            col for col in expected_columns if col in cleaned_df.columns
+        ]
+        cleaned_df = cleaned_df.select(*columns_to_select)
+
+        # Construct silver table path: silver/{schema_name}/
+        silver_table_path = os.path.join(
+            settings.delta_lake_base_path,
+            "silver",
+            schema_name
+        )
+
+        # Check if table exists and validate schema
+        if DeltaTable.isDeltaTable(spark, silver_table_path):
+            existing_table = DeltaTable.forPath(spark, silver_table_path)
+            existing_schema = existing_table.toDF().schema
+
+            # Validate schema compatibility
+            validate_schema_compatibility(
+                existing_schema, cleaned_df.schema, allow_new_columns=True
+            )
+
+            # Write with schema merge and overwrite for entity columns
+            # Use overwriteSchema to allow entity_root_id/entity_id type changes
+            cleaned_df.write.format("delta").mode("append").option(
+                "mergeSchema", "true"
+            ).option(
+                "overwriteSchema", "true"
+            ).save(silver_table_path)
+        else:
+            # First write - create new table
+            cleaned_df.write.format("delta").mode("append").save(silver_table_path)
+
+        # Get row count (triggers computation)
+        row_count = cleaned_df.count()
+
+        return silver_table_path, row_count
+
+    except SchemaValidationError:
+        raise
+    except Exception as e:
+        raise DeltaWriteError(f"Failed to write to silver lake: {str(e)}")
+
+
 def write_to_delta_lake(
     df: DataFrame,
     schema_name: str,
@@ -312,22 +416,12 @@ def write_to_delta_lake(
     execution_time: str,
 ) -> tuple[str, int]:
     """
-    Write Spark DataFrame to Delta Lake table with schema validation.
+    DEPRECATED: Use write_to_silver_lake() instead.
 
-    Args:
-        df: Spark DataFrame containing transformed data
-        schema_name: Name of the target schema (used as table name)
-        schema_fields: Target schema field definitions
-        mapping_id: Mapping ID for metadata
-        run_id: Run ID for tracking this specific execution
-        execution_time: Execution timestamp for metadata
+    This function is kept for backward compatibility.
+    It writes to the old path structure (delta-lake/{schema_name}/).
 
-    Returns:
-        Tuple of (delta_table_path, row_count)
-
-    Raises:
-        SchemaValidationError: If schema is incompatible
-        DeltaWriteError: If write operation fails
+    For new code, use write_to_silver_lake() which writes to silver/ subdirectory.
     """
     try:
         spark = get_spark_session()
@@ -363,7 +457,7 @@ def write_to_delta_lake(
         ]
         cleaned_df = cleaned_df.select(*columns_to_select)
 
-        # Construct Delta Lake table path
+        # Construct Delta Lake table path (OLD PATH STRUCTURE)
         delta_table_path = os.path.join(settings.delta_lake_base_path, schema_name)
 
         # Check if table exists and validate schema

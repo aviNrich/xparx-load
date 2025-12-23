@@ -1,12 +1,15 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MappingList } from '../components/mappings/MappingList';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Plus } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { Button } from '../components/ui/button';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { useMappings } from '../hooks/useMappings';
 import { Mapping } from '../types/mapping';
 
 export const MappingsPage = () => {
+  const navigate = useNavigate();
   const { mappings, loading, error, deleteMapping } = useMappings();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [mappingToDelete, setMappingToDelete] = useState<Mapping | null>(null);
@@ -35,9 +38,18 @@ export const MappingsPage = () => {
     <>
       {/* Header */}
       <div className="mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Data Mappings</h1>
-          <p className="text-sm text-neutral-500 mt-1">Configure ETL data mappings</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900">Data Mappings</h1>
+            <p className="text-sm text-neutral-500 mt-1">Configure ETL data mappings</p>
+          </div>
+          <Button
+            onClick={() => navigate('/mappings/new')}
+            className="bg-primary-500 hover:bg-primary-600 text-white shadow-lg hover:shadow-xl transition-all"
+          >
+            <Plus className="mr-2 h-5 w-5" />
+            Create Mapping
+          </Button>
         </div>
       </div>
 

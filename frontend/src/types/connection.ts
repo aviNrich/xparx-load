@@ -1,4 +1,4 @@
-export type DatabaseType = 'mysql' | 'postgresql' | 'file';
+export type DatabaseType = 'file' | 'mysql' | 'postgresql';
 export type FileType = 'csv' | 'json' | 'excel';
 
 export interface Connection {

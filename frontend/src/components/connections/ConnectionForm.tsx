@@ -13,7 +13,7 @@ import { Loader2, CheckCircle, XCircle, Wifi, Upload, X, FileText } from 'lucide
 
 const connectionSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  db_type: z.enum(['mysql', 'postgresql', 'file']),
+  db_type: z.enum(['file', 'mysql', 'postgresql', ]),
   host: z.string().optional(),
   port: z.number().optional(),
   database: z.string().optional(),
@@ -214,9 +214,9 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
         <div className="mt-2">
           <Combobox
             options={[
+              { label: 'File Upload', value: 'file' },
               { label: 'MySQL', value: 'mysql' },
               { label: 'PostgreSQL', value: 'postgresql' },
-              { label: 'File Upload', value: 'file' },
             ]}
             value={dbType}
             onValueChange={(value) => setValue('db_type', value as DatabaseType)}

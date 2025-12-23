@@ -116,9 +116,7 @@ export function SourcesPage() {
     }
   };
 
-  const activeCount = connections.filter(c => c.last_test_status === 'success').length;
-  const failedCount = connections.filter(c => c.last_test_status === 'failed').length;
-
+ 
   return (
     <>
       {/* Header */}
@@ -143,7 +141,7 @@ export function SourcesPage() {
       </motion.div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <MetricCard
           title="Total Sources"
           value={connections.length}
@@ -171,7 +169,7 @@ export function SourcesPage() {
           trend={failedCount > 0 ? 'down' : undefined}
           loading={loading}
         />
-      </div>
+      </div> */}
 
       {error && (
         <Alert variant="destructive" className="mb-6">
