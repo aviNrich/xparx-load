@@ -18,6 +18,8 @@ export interface Connection {
   updated_at: string;
   last_tested_at?: string;
   last_test_status?: 'success' | 'failed';
+  archived: boolean;
+  archived_at?: string;
 }
 
 export interface ConnectionFormData {

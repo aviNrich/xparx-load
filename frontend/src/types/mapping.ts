@@ -10,6 +10,8 @@ export interface Mapping {
   entity_id_column?: string;  // Row ID column (e.g., "id")
   created_at: string;
   updated_at: string;
+  archived: boolean;
+  archived_at?: string;
 }
 
 export interface MappingFormData {
@@ -76,4 +78,6 @@ export interface ColumnMappingConfiguration {
   target_schemas: SchemaConfiguration[];
   created_at?: string;
   updated_at?: string;
+  archived?: boolean;
+  archived_at?: string;
 }

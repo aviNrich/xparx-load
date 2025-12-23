@@ -65,6 +65,8 @@ class ConnectionResponse(ConnectionBase):
     updated_at: datetime
     last_tested_at: Optional[datetime] = None
     last_test_status: Optional[Literal["success", "failed"]] = None
+    archived: bool = False
+    archived_at: Optional[datetime] = None
 
     class Config:
         populate_by_name = True

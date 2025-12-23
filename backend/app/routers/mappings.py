@@ -76,10 +76,11 @@ def create_mapping(
 
 @router.get("/", response_model=List[MappingResponse])
 def list_mappings(
+    include_archived: bool = False,
     service: MappingService = Depends(get_mapping_service)
 ):
     """List all mappings"""
-    return service.list_mappings()
+    return service.list_mappings(include_archived=include_archived)
 
 
 @router.get("/{mapping_id}", response_model=MappingResponse)
@@ -113,14 +114,29 @@ def update_mapping(
         )
 
 
-@router.delete("/{mapping_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_mapping(
+@router.post("/{mapping_id}/archive", response_model=MappingResponse)
+def archive_mapping(
     mapping_id: str,
     service: MappingService = Depends(get_mapping_service)
 ):
-    """Delete a mapping"""
+    """Archive a mapping (soft delete)"""
     try:
-        service.delete_mapping(mapping_id)
+        return service.archive_mapping(mapping_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@router.post("/{mapping_id}/restore", response_model=MappingResponse)
+def restore_mapping(
+    mapping_id: str,
+    service: MappingService = Depends(get_mapping_service)
+):
+    """Restore an archived mapping"""
+    try:
+        return service.restore_mapping(mapping_id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -212,15 +228,42 @@ def update_column_mapping(
         )
 
 
-@router.delete("/{mapping_id}/column-mappings", status_code=status.HTTP_204_NO_CONTENT)
-def delete_column_mapping(
+@router.post("/{mapping_id}/column-mappings/archive", status_code=status.HTTP_204_NO_CONTENT)
+def archive_column_mapping(
     mapping_id: str,
     service: MappingService = Depends(get_mapping_service)
 ):
-    """Delete column mapping configuration"""
+    """Archive column mapping configuration (soft delete)"""
     try:
-        deleted = service.delete_column_mapping(mapping_id)
-        if not deleted:
+        archived = service.archive_column_mapping(mapping_id)
+        if not archived:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Column mapping not found for mapping: {mapping_id}"
+            )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post("/{mapping_id}/column-mappings/restore", status_code=status.HTTP_204_NO_CONTENT)
+def restore_column_mapping(
+    mapping_id: str,
+    service: MappingService = Depends(get_mapping_service)
+):
+    """Restore an archived column mapping configuration"""
+    try:
+        restored = service.restore_column_mapping(mapping_id)
+        if not restored:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Column mapping not found for mapping: {mapping_id}"

@@ -52,6 +52,8 @@ class MappingResponse(MappingBase):
     source_type: Optional[str] = None  # Populated from connection db_type
     created_at: datetime
     updated_at: datetime
+    archived: bool = False
+    archived_at: Optional[datetime] = None
 
     class Config:
         populate_by_name = True
@@ -107,6 +109,8 @@ class ColumnMappingResponse(ColumnMappingConfigurationBase):
     id: str = Field(alias="_id")
     created_at: datetime
     updated_at: datetime
+    archived: bool = False
+    archived_at: Optional[datetime] = None
 
     class Config:
         populate_by_name = True

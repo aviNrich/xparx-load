@@ -14,6 +14,8 @@ export interface TableSchema {
   fields: SchemaField[];
   created_at: string;
   updated_at: string;
+  archived: boolean;
+  archived_at?: string;
 }
 
 export interface TableSchemaFormData {

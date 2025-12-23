@@ -10,11 +10,12 @@ import { Mapping } from '../types/mapping';
 
 export const MappingsPage = () => {
   const navigate = useNavigate();
-  const { mappings, loading, error, deleteMapping } = useMappings();
+  const { mappings, loading, error, archiveMapping, restoreMapping } = useMappings();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [mappingToDelete, setMappingToDelete] = useState<Mapping | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const handleDelete = (mapping: Mapping) => {
     setMappingToDelete(mapping);
@@ -25,11 +26,16 @@ export const MappingsPage = () => {
     if (!mappingToDelete) return;
 
     try {
-      await deleteMapping(mappingToDelete._id);
+      // Check if we're restoring or archiving
+      if (mappingToDelete.archived) {
+        await restoreMapping(mappingToDelete._id);
+      } else {
+        await archiveMapping(mappingToDelete._id);
+      }
       setMappingToDelete(null);
     } catch (err) {
-      console.error('Failed to delete mapping:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete mapping');
+      console.error('Failed to archive/restore mapping:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to archive/restore mapping');
       setErrorDialogOpen(true);
     }
   };
@@ -38,7 +44,7 @@ export const MappingsPage = () => {
     <>
       {/* Header */}
       <div className="mb-6">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Data Mappings</h1>
             <p className="text-sm text-neutral-500 mt-1">Configure ETL data mappings</p>
@@ -49,6 +55,24 @@ export const MappingsPage = () => {
           >
             <Plus className="mr-2 h-5 w-5" />
             Create Mapping
+          </Button>
+        </div>
+
+        {/* Archive Toggle */}
+        <div className="flex gap-2">
+          <Button
+            variant={!showArchived ? "default" : "outline"}
+            onClick={() => setShowArchived(false)}
+            size="sm"
+          >
+            Active
+          </Button>
+          <Button
+            variant={showArchived ? "default" : "outline"}
+            onClick={() => setShowArchived(true)}
+            size="sm"
+          >
+            Archived
           </Button>
         </div>
       </div>
@@ -72,20 +96,24 @@ export const MappingsPage = () => {
       ) : (
         /* Mapping List */
         <MappingList
-          mappings={mappings}
+          mappings={mappings.filter(m => m.archived === showArchived)}
           onDelete={handleDelete}
         />
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Archive/Restore Confirmation Dialog */}
       <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        title="Delete Mapping"
-        description={`Are you sure you want to delete the "${mappingToDelete?.name}" mapping? This action cannot be undone.`}
-        confirmText="Delete"
+        title={mappingToDelete?.archived ? "Restore Mapping" : "Archive Mapping"}
+        description={
+          mappingToDelete?.archived
+            ? `Are you sure you want to restore the "${mappingToDelete?.name}" mapping? It will be visible in your mappings list again.`
+            : `Are you sure you want to archive the "${mappingToDelete?.name}" mapping? You can restore it later from the archived items.`
+        }
+        confirmText={mappingToDelete?.archived ? "Restore" : "Archive"}
         cancelText="Cancel"
-        variant="destructive"
+        variant={mappingToDelete?.archived ? "default" : "destructive"}
         onConfirm={confirmDelete}
         onCancel={() => setMappingToDelete(null)}
       />

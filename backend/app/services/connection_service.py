@@ -19,12 +19,14 @@ class ConnectionService:
         if connection_dict.get("password"):
             connection_dict["password"] = encrypt_password(connection_dict["password"])
 
-        # Add timestamps
+        # Add timestamps and archive fields
         now = datetime.utcnow()
         connection_dict["created_at"] = now
         connection_dict["updated_at"] = now
         connection_dict["last_tested_at"] = None
         connection_dict["last_test_status"] = None
+        connection_dict["archived"] = False
+        connection_dict["archived_at"] = None
 
         try:
             result = self.collection.insert_one(connection_dict)
@@ -49,9 +51,10 @@ class ConnectionService:
         connection["_id"] = str(connection["_id"])
         return ConnectionResponse(**connection)
 
-    def list_connections(self) -> List[ConnectionResponse]:
-        """List all connections"""
-        connections = list(self.collection.find().sort("updated_at", -1))
+    def list_connections(self, include_archived: bool = False) -> List[ConnectionResponse]:
+        """List all connections (excluding archived by default)"""
+        query = {} if include_archived else {"archived": {"$ne": True}}
+        connections = list(self.collection.find(query).sort("updated_at", -1))
         for conn in connections:
             conn["_id"] = str(conn["_id"])
             conn["key"] = "test" + conn["_id"]
@@ -86,16 +89,39 @@ class ConnectionService:
         result["_id"] = str(result["_id"])
         return ConnectionResponse(**result)
 
-    def delete_connection(self, connection_id: str) -> bool:
-        """Delete a connection"""
+    def archive_connection(self, connection_id: str) -> ConnectionResponse:
+        """Archive a connection (soft delete)"""
         if not ObjectId.is_valid(connection_id):
             raise ConnectionNotFoundError(f"Invalid connection ID: {connection_id}")
 
-        result = self.collection.delete_one({"_id": ObjectId(connection_id)})
-        if result.deleted_count == 0:
+        result = self.collection.find_one_and_update(
+            {"_id": ObjectId(connection_id)},
+            {"$set": {"archived": True, "archived_at": datetime.utcnow()}},
+            return_document=True,
+        )
+
+        if not result:
             raise ConnectionNotFoundError(f"Connection not found: {connection_id}")
 
-        return True
+        result["_id"] = str(result["_id"])
+        return ConnectionResponse(**result)
+
+    def restore_connection(self, connection_id: str) -> ConnectionResponse:
+        """Restore an archived connection"""
+        if not ObjectId.is_valid(connection_id):
+            raise ConnectionNotFoundError(f"Invalid connection ID: {connection_id}")
+
+        result = self.collection.find_one_and_update(
+            {"_id": ObjectId(connection_id)},
+            {"$set": {"archived": False, "archived_at": None}},
+            return_document=True,
+        )
+
+        if not result:
+            raise ConnectionNotFoundError(f"Connection not found: {connection_id}")
+
+        result["_id"] = str(result["_id"])
+        return ConnectionResponse(**result)
 
     def update_test_status(self, connection_id: str, status: str):
         """Update last test status and timestamp"""

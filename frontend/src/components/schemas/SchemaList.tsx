@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { TableSchema } from '../../types/schema';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Pencil, Trash2, Table2, Eye } from 'lucide-react';
+import { Pencil, Trash2, Table2, Eye, ArchiveRestore } from 'lucide-react';
 
 interface SchemaListProps {
   schemas: TableSchema[];
@@ -117,10 +117,10 @@ export function SchemaList({ schemas, onDelete }: SchemaListProps) {
                       size="sm"
                       variant="outline"
                       onClick={() => onDelete(schema)}
-                      className="border-red-200 text-red-600 hover:bg-red-50"
-                      title="Delete schema"
+                      className={schema.archived ? "border-green-200 text-green-600 hover:bg-green-50" : "border-red-200 text-red-600 hover:bg-red-50"}
+                      title={schema.archived ? "Restore" : "Archive"}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      {schema.archived ? <ArchiveRestore className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
                     </Button>
                   </div>
                 </td>

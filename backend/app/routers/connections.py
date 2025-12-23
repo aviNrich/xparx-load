@@ -37,10 +37,11 @@ def create_connection(
 
 @router.get("/", response_model=List[ConnectionResponse])
 def list_connections(
+    include_archived: bool = False,
     service: ConnectionService = Depends(get_connection_service)
 ):
     """List all source connections"""
-    return service.list_connections()
+    return service.list_connections(include_archived=include_archived)
 
 
 @router.get("/{connection_id}", response_model=ConnectionResponse)
@@ -70,14 +71,26 @@ def update_connection(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_connection(
+@router.post("/{connection_id}/archive", response_model=ConnectionResponse)
+def archive_connection(
     connection_id: str,
     service: ConnectionService = Depends(get_connection_service)
 ):
-    """Delete a connection"""
+    """Archive a connection (soft delete)"""
     try:
-        service.delete_connection(connection_id)
+        return service.archive_connection(connection_id)
+    except ConnectionNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/{connection_id}/restore", response_model=ConnectionResponse)
+def restore_connection(
+    connection_id: str,
+    service: ConnectionService = Depends(get_connection_service)
+):
+    """Restore an archived connection"""
+    try:
+        return service.restore_connection(connection_id)
     except ConnectionNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 

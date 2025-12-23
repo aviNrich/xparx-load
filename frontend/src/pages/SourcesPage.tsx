@@ -25,12 +25,14 @@ export function SourcesPage() {
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [modalInitialData, setModalInitialData] = useState<ConnectionFormData | undefined>(undefined);
+  const [showArchived, setShowArchived] = useState(false);
 
   const {
     connections,
     loading,
     error,
-    deleteConnection,
+    archiveConnection,
+    restoreConnection,
     createConnection,
     updateConnection,
   } = useConnections();
@@ -70,12 +72,18 @@ export function SourcesPage() {
     if (!connectionToDelete) return;
 
     try {
-      await deleteConnection(connectionToDelete._id);
+      // Check if we're restoring or archiving
+      if (connectionToDelete.archived) {
+        await restoreConnection(connectionToDelete._id);
+        toast.success('Connection restored successfully!');
+      } else {
+        await archiveConnection(connectionToDelete._id);
+        toast.success('Connection archived successfully!');
+      }
       setConnectionToDelete(null);
-      toast.success('Connection deleted successfully!');
     } catch (err) {
-      console.error('Failed to delete connection:', err);
-      const message = err instanceof Error ? err.message : 'Failed to delete connection';
+      console.error('Failed to archive/restore connection:', err);
+      const message = err instanceof Error ? err.message : 'Failed to archive/restore connection';
       toast.error(message);
       setErrorMessage(message);
       setErrorDialogOpen(true);
@@ -125,7 +133,7 @@ export function SourcesPage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-3xl font-bold text-neutral-900">Data Sources</h1>
             <p className="text-neutral-600 mt-2">Connect databases and files to power your data flows</p>
@@ -136,6 +144,24 @@ export function SourcesPage() {
           >
             <Plus className="mr-2 h-5 w-5" />
             Add Source
+          </Button>
+        </div>
+
+        {/* Archive Toggle */}
+        <div className="flex gap-2">
+          <Button
+            variant={!showArchived ? "default" : "outline"}
+            onClick={() => setShowArchived(false)}
+            size="sm"
+          >
+            Active
+          </Button>
+          <Button
+            variant={showArchived ? "default" : "outline"}
+            onClick={() => setShowArchived(true)}
+            size="sm"
+          >
+            Archived
           </Button>
         </div>
       </motion.div>
@@ -187,20 +213,24 @@ export function SourcesPage() {
         </div>
       ) : (
         <ConnectionList
-          connections={connections}
+          connections={connections.filter(c => c.archived === showArchived)}
           onDelete={handleDelete}
         />
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Archive/Restore Confirmation Dialog */}
       <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        title="Delete Connection"
-        description={`Are you sure you want to delete "${connectionToDelete?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
+        title={connectionToDelete?.archived ? "Restore Connection" : "Archive Connection"}
+        description={
+          connectionToDelete?.archived
+            ? `Are you sure you want to restore "${connectionToDelete?.name}"? It will be visible in your connections list again.`
+            : `Are you sure you want to archive "${connectionToDelete?.name}"? You can restore it later from the archived items.`
+        }
+        confirmText={connectionToDelete?.archived ? "Restore" : "Archive"}
         cancelText="Cancel"
-        variant="destructive"
+        variant={connectionToDelete?.archived ? "default" : "destructive"}
         onConfirm={confirmDelete}
         onCancel={() => setConnectionToDelete(null)}
       />

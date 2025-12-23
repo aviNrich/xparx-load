@@ -6,7 +6,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Pencil, Trash2, Database, CheckCircle, XCircle, FileText, Plus, History } from 'lucide-react';
+import { Pencil, Trash2, Database, CheckCircle, XCircle, FileText, Plus, History, ArchiveRestore } from 'lucide-react';
 import { RunHistoryTable } from '../history/RunHistoryTable';
 import { RunDetailsModal } from '../history/RunDetailsModal';
 
@@ -270,9 +270,10 @@ export function ConnectionList({ connections, onDelete }: ConnectionListProps) {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => onDelete(connection)}
-                                className="border-red-200 text-red-600 hover:bg-red-50"
+                                className={connection.archived ? "border-green-200 text-green-600 hover:bg-green-50" : "border-red-200 text-red-600 hover:bg-red-50"}
+                                title={connection.archived ? "Restore" : "Archive"}
                               >
-                                <Trash2 className="h-3 w-3" />
+                                {connection.archived ? <ArchiveRestore className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
                               </Button>
                             </div>
                           </td>

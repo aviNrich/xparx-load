@@ -200,10 +200,12 @@ class MappingService:
         """Create a new mapping"""
         mapping_dict = mapping.model_dump()
 
-        # Add timestamps
+        # Add timestamps and archive fields
         now = datetime.utcnow()
         mapping_dict["created_at"] = now
         mapping_dict["updated_at"] = now
+        mapping_dict["archived"] = False
+        mapping_dict["archived_at"] = None
 
         try:
             result = self.mappings_collection.insert_one(mapping_dict)
@@ -232,9 +234,10 @@ class MappingService:
 
         return MappingResponse(**mapping)
 
-    def list_mappings(self) -> List[MappingResponse]:
-        """List all mappings"""
-        mappings = list(self.mappings_collection.find().sort("updated_at", -1))
+    def list_mappings(self, include_archived: bool = False) -> List[MappingResponse]:
+        """List all mappings (excluding archived by default)"""
+        query = {} if include_archived else {"archived": {"$ne": True}}
+        mappings = list(self.mappings_collection.find(query).sort("updated_at", -1))
         for mapping in mappings:
             mapping["_id"] = str(mapping["_id"])
 
@@ -270,16 +273,39 @@ class MappingService:
         result["_id"] = str(result["_id"])
         return MappingResponse(**result)
 
-    def delete_mapping(self, mapping_id: str) -> bool:
-        """Delete a mapping"""
+    def archive_mapping(self, mapping_id: str) -> MappingResponse:
+        """Archive a mapping (soft delete)"""
         if not ObjectId.is_valid(mapping_id):
             raise ValueError(f"Invalid mapping ID: {mapping_id}")
 
-        result = self.mappings_collection.delete_one({"_id": ObjectId(mapping_id)})
-        if result.deleted_count == 0:
+        result = self.mappings_collection.find_one_and_update(
+            {"_id": ObjectId(mapping_id)},
+            {"$set": {"archived": True, "archived_at": datetime.utcnow()}},
+            return_document=True
+        )
+
+        if not result:
             raise ValueError(f"Mapping not found: {mapping_id}")
 
-        return True
+        result["_id"] = str(result["_id"])
+        return MappingResponse(**result)
+
+    def restore_mapping(self, mapping_id: str) -> MappingResponse:
+        """Restore an archived mapping"""
+        if not ObjectId.is_valid(mapping_id):
+            raise ValueError(f"Invalid mapping ID: {mapping_id}")
+
+        result = self.mappings_collection.find_one_and_update(
+            {"_id": ObjectId(mapping_id)},
+            {"$set": {"archived": False, "archived_at": None}},
+            return_document=True
+        )
+
+        if not result:
+            raise ValueError(f"Mapping not found: {mapping_id}")
+
+        result["_id"] = str(result["_id"])
+        return MappingResponse(**result)
 
     # Column Mapping CRUD operations
     def create_column_mapping(self, config: ColumnMappingCreate) -> ColumnMappingResponse:
@@ -303,10 +329,12 @@ class MappingService:
 
         config_dict = config.model_dump()
 
-        # Add timestamps
+        # Add timestamps and archive fields
         now = datetime.utcnow()
         config_dict["created_at"] = now
         config_dict["updated_at"] = now
+        config_dict["archived"] = False
+        config_dict["archived_at"] = None
 
         try:
             result = self.column_mappings_collection.insert_one(config_dict)
@@ -357,10 +385,24 @@ class MappingService:
         result["_id"] = str(result["_id"])
         return ColumnMappingResponse(**result)
 
-    def delete_column_mapping(self, mapping_id: str) -> bool:
-        """Delete a column mapping configuration"""
+    def archive_column_mapping(self, mapping_id: str) -> bool:
+        """Archive a column mapping configuration (soft delete)"""
         if not ObjectId.is_valid(mapping_id):
             raise ValueError(f"Invalid mapping ID: {mapping_id}")
 
-        result = self.column_mappings_collection.delete_one({"mapping_id": mapping_id})
-        return result.deleted_count > 0
+        result = self.column_mappings_collection.update_one(
+            {"mapping_id": mapping_id},
+            {"$set": {"archived": True, "archived_at": datetime.utcnow()}}
+        )
+        return result.modified_count > 0
+
+    def restore_column_mapping(self, mapping_id: str) -> bool:
+        """Restore an archived column mapping configuration"""
+        if not ObjectId.is_valid(mapping_id):
+            raise ValueError(f"Invalid mapping ID: {mapping_id}")
+
+        result = self.column_mappings_collection.update_one(
+            {"mapping_id": mapping_id},
+            {"$set": {"archived": False, "archived_at": None}}
+        )
+        return result.modified_count > 0

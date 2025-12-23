@@ -23,12 +23,14 @@ export function SchemaPage() {
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [modalInitialData, setModalInitialData] = useState<TableSchemaFormData | undefined>(undefined);
+  const [showArchived, setShowArchived] = useState(false);
 
   const {
     schemas,
     loading,
     error,
-    deleteSchema,
+    archiveSchema,
+    restoreSchema,
     createSchema,
     updateSchema,
   } = useSchemas();
@@ -59,12 +61,18 @@ export function SchemaPage() {
     if (!schemaToDelete) return;
 
     try {
-      await deleteSchema(schemaToDelete._id);
+      // Check if we're restoring or archiving
+      if (schemaToDelete.archived) {
+        await restoreSchema(schemaToDelete._id);
+        toast.success('Schema restored successfully!');
+      } else {
+        await archiveSchema(schemaToDelete._id);
+        toast.success('Schema archived successfully!');
+      }
       setSchemaToDelete(null);
-      toast.success('Schema deleted successfully!');
     } catch (err) {
-      console.error('Failed to delete schema:', err);
-      const message = err instanceof Error ? err.message : 'Failed to delete schema';
+      console.error('Failed to archive/restore schema:', err);
+      const message = err instanceof Error ? err.message : 'Failed to archive/restore schema';
       toast.error(message);
       setErrorMessage(message);
       setErrorDialogOpen(true);
@@ -116,7 +124,7 @@ export function SchemaPage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-3xl font-bold text-neutral-900">Table Schemas</h1>
             <p className="text-neutral-600 mt-2">Define and manage your data ontology structures</p>
@@ -127,6 +135,24 @@ export function SchemaPage() {
           >
             <Plus className="mr-2 h-5 w-5" />
             New Schema
+          </Button>
+        </div>
+
+        {/* Archive Toggle */}
+        <div className="flex gap-2">
+          <Button
+            variant={!showArchived ? "default" : "outline"}
+            onClick={() => setShowArchived(false)}
+            size="sm"
+          >
+            Active
+          </Button>
+          <Button
+            variant={showArchived ? "default" : "outline"}
+            onClick={() => setShowArchived(true)}
+            size="sm"
+          >
+            Archived
           </Button>
         </div>
       </motion.div>
@@ -175,20 +201,24 @@ export function SchemaPage() {
         </div>
       ) : (
         <SchemaList
-          schemas={schemas}
+          schemas={schemas.filter(s => s.archived === showArchived)}
           onDelete={handleDelete}
         />
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Archive/Restore Confirmation Dialog */}
       <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        title="Delete Schema"
-        description={`Are you sure you want to delete the "${schemaToDelete?.name}" schema? This action cannot be undone.`}
-        confirmText="Delete"
+        title={schemaToDelete?.archived ? "Restore Schema" : "Archive Schema"}
+        description={
+          schemaToDelete?.archived
+            ? `Are you sure you want to restore the "${schemaToDelete?.name}" schema? It will be visible in your schemas list again.`
+            : `Are you sure you want to archive the "${schemaToDelete?.name}" schema? You can restore it later from the archived items.`
+        }
+        confirmText={schemaToDelete?.archived ? "Restore" : "Archive"}
         cancelText="Cancel"
-        variant="destructive"
+        variant={schemaToDelete?.archived ? "default" : "destructive"}
         onConfirm={confirmDelete}
         onCancel={() => setSchemaToDelete(null)}
       />

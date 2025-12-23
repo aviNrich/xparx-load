@@ -36,9 +36,14 @@ export function useSchemas() {
     return updated;
   };
 
-  const deleteSchema = async (id: string): Promise<void> => {
-    await schemaAPI.delete(id);
-    setSchemas(prev => prev.filter(schema => schema._id !== id));
+  const archiveSchema = async (id: string): Promise<void> => {
+    const archived = await schemaAPI.archive(id);
+    setSchemas(prev => prev.map(schema => schema._id === id ? archived : schema));
+  };
+
+  const restoreSchema = async (id: string): Promise<void> => {
+    const restored = await schemaAPI.restore(id);
+    setSchemas(prev => prev.map(schema => schema._id === id ? restored : schema));
   };
 
   return {
@@ -48,6 +53,7 @@ export function useSchemas() {
     fetchSchemas,
     createSchema,
     updateSchema,
-    deleteSchema,
+    archiveSchema,
+    restoreSchema,
   };
 }

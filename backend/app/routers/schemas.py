@@ -31,10 +31,11 @@ def create_schema(
 
 @router.get("/", response_model=List[TableSchemaResponse])
 def list_schemas(
+    include_archived: bool = False,
     service: SchemaService = Depends(get_schema_service)
 ):
     """List all table schemas"""
-    return service.list_schemas()
+    return service.list_schemas(include_archived=include_archived)
 
 
 @router.get("/{schema_id}", response_model=TableSchemaResponse)
@@ -64,13 +65,25 @@ def update_schema(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.delete("/{schema_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_schema(
+@router.post("/{schema_id}/archive", response_model=TableSchemaResponse)
+def archive_schema(
     schema_id: str,
     service: SchemaService = Depends(get_schema_service)
 ):
-    """Delete a schema"""
+    """Archive a schema (soft delete)"""
     try:
-        service.delete_schema(schema_id)
+        return service.archive_schema(schema_id)
+    except ConnectionNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/{schema_id}/restore", response_model=TableSchemaResponse)
+def restore_schema(
+    schema_id: str,
+    service: SchemaService = Depends(get_schema_service)
+):
+    """Restore an archived schema"""
+    try:
+        return service.restore_schema(schema_id)
     except ConnectionNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

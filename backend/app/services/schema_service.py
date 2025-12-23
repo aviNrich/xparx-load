@@ -24,6 +24,8 @@ class SchemaService:
         schema_dict = schema.model_dump()
         schema_dict["created_at"] = now
         schema_dict["updated_at"] = now
+        schema_dict["archived"] = False
+        schema_dict["archived_at"] = None
 
         # Insert into database
         result = self.collection.insert_one(schema_dict)
@@ -33,9 +35,10 @@ class SchemaService:
         created_schema["_id"] = str(created_schema["_id"])
         return TableSchemaResponse(**created_schema)
 
-    def list_schemas(self) -> List[TableSchemaResponse]:
-        """List all table schemas"""
-        schemas = list(self.collection.find().sort("created_at", -1))
+    def list_schemas(self, include_archived: bool = False) -> List[TableSchemaResponse]:
+        """List all table schemas (excluding archived by default)"""
+        query = {} if include_archived else {"archived": {"$ne": True}}
+        schemas = list(self.collection.find(query).sort("created_at", -1))
         for schema in schemas:
             schema["_id"] = str(schema["_id"])
             # schema["schema_handler"] = "test"
@@ -94,11 +97,36 @@ class SchemaService:
         updated_schema["_id"] = str(updated_schema["_id"])
         return TableSchemaResponse(**updated_schema)
 
-    def delete_schema(self, schema_id: str) -> None:
-        """Delete a schema"""
+    def archive_schema(self, schema_id: str) -> TableSchemaResponse:
+        """Archive a schema (soft delete)"""
         if not ObjectId.is_valid(schema_id):
             raise ConnectionNotFoundError(f"Invalid schema ID: {schema_id}")
 
-        result = self.collection.delete_one({"_id": ObjectId(schema_id)})
-        if result.deleted_count == 0:
+        result = self.collection.find_one_and_update(
+            {"_id": ObjectId(schema_id)},
+            {"$set": {"archived": True, "archived_at": datetime.utcnow()}},
+            return_document=True
+        )
+
+        if not result:
             raise ConnectionNotFoundError(f"Schema with ID {schema_id} not found")
+
+        result["_id"] = str(result["_id"])
+        return TableSchemaResponse(**result)
+
+    def restore_schema(self, schema_id: str) -> TableSchemaResponse:
+        """Restore an archived schema"""
+        if not ObjectId.is_valid(schema_id):
+            raise ConnectionNotFoundError(f"Invalid schema ID: {schema_id}")
+
+        result = self.collection.find_one_and_update(
+            {"_id": ObjectId(schema_id)},
+            {"$set": {"archived": False, "archived_at": None}},
+            return_document=True
+        )
+
+        if not result:
+            raise ConnectionNotFoundError(f"Schema with ID {schema_id} not found")
+
+        result["_id"] = str(result["_id"])
+        return TableSchemaResponse(**result)

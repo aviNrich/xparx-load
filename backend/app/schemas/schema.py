@@ -114,6 +114,8 @@ class TableSchemaResponse(TableSchemaBase):
     id: str = Field(alias="_id")
     created_at: datetime
     updated_at: datetime
+    archived: bool = False
+    archived_at: Optional[datetime] = None
 
     class Config:
         populate_by_name = True

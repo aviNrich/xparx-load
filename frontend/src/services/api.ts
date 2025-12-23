@@ -16,7 +16,9 @@ const api = axios.create({
 export const connectionAPI = {
   // List all connections
   list: async (): Promise<Connection[]> => {
-    const response = await api.get<Connection[]>('/connections/');
+    const response = await api.get<Connection[]>('/connections/', {
+      params: { include_archived: true }
+    });
     return response.data;
   },
 
@@ -38,9 +40,16 @@ export const connectionAPI = {
     return response.data;
   },
 
-  // Delete connection
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/connections/${id}`);
+  // Archive connection (soft delete)
+  archive: async (id: string): Promise<Connection> => {
+    const response = await api.post<Connection>(`/connections/${id}/archive`);
+    return response.data;
+  },
+
+  // Restore archived connection
+  restore: async (id: string): Promise<Connection> => {
+    const response = await api.post<Connection>(`/connections/${id}/restore`);
+    return response.data;
   },
 
   // Test new connection
@@ -87,7 +96,9 @@ export const connectionAPI = {
 export const schemaAPI = {
   // List all schemas
   list: async (): Promise<TableSchema[]> => {
-    const response = await api.get<TableSchema[]>('/schemas/');
+    const response = await api.get<TableSchema[]>('/schemas/', {
+      params: { include_archived: true }
+    });
     return response.data;
   },
 
@@ -109,16 +120,25 @@ export const schemaAPI = {
     return response.data;
   },
 
-  // Delete schema
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/schemas/${id}`);
+  // Archive schema (soft delete)
+  archive: async (id: string): Promise<TableSchema> => {
+    const response = await api.post<TableSchema>(`/schemas/${id}/archive`);
+    return response.data;
+  },
+
+  // Restore archived schema
+  restore: async (id: string): Promise<TableSchema> => {
+    const response = await api.post<TableSchema>(`/schemas/${id}/restore`);
+    return response.data;
   },
 };
 
 export const mappingAPI = {
   // List all mappings
   list: async (): Promise<Mapping[]> => {
-    const response = await api.get<Mapping[]>('/mappings/');
+    const response = await api.get<Mapping[]>('/mappings/', {
+      params: { include_archived: true }
+    });
     return response.data;
   },
 
@@ -140,9 +160,16 @@ export const mappingAPI = {
     return response.data;
   },
 
-  // Delete mapping
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/mappings/${id}`);
+  // Archive mapping (soft delete)
+  archive: async (id: string): Promise<Mapping> => {
+    const response = await api.post<Mapping>(`/mappings/${id}/archive`);
+    return response.data;
+  },
+
+  // Restore archived mapping
+  restore: async (id: string): Promise<Mapping> => {
+    const response = await api.post<Mapping>(`/mappings/${id}/restore`);
+    return response.data;
   },
 
   // List tables from a connection
@@ -184,9 +211,14 @@ export const columnMappingAPI = {
     return response.data;
   },
 
-  // Delete column mapping configuration
-  delete: async (mappingId: string): Promise<void> => {
-    await api.delete(`/mappings/${mappingId}/column-mappings`);
+  // Archive column mapping configuration (soft delete)
+  archive: async (mappingId: string): Promise<void> => {
+    await api.post(`/mappings/${mappingId}/column-mappings/archive`);
+  },
+
+  // Restore archived column mapping configuration
+  restore: async (mappingId: string): Promise<void> => {
+    await api.post(`/mappings/${mappingId}/column-mappings/restore`);
   },
 };
 

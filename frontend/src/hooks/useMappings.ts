@@ -36,9 +36,14 @@ export function useMappings() {
     return updated;
   };
 
-  const deleteMapping = async (id: string): Promise<void> => {
-    await mappingAPI.delete(id);
-    setMappings(prev => prev.filter(mapping => mapping._id !== id));
+  const archiveMapping = async (id: string): Promise<void> => {
+    const archived = await mappingAPI.archive(id);
+    setMappings(prev => prev.map(mapping => mapping._id === id ? archived : mapping));
+  };
+
+  const restoreMapping = async (id: string): Promise<void> => {
+    const restored = await mappingAPI.restore(id);
+    setMappings(prev => prev.map(mapping => mapping._id === id ? restored : mapping));
   };
 
   return {
@@ -48,6 +53,7 @@ export function useMappings() {
     fetchMappings,
     createMapping,
     updateMapping,
-    deleteMapping,
+    archiveMapping,
+    restoreMapping,
   };
 }

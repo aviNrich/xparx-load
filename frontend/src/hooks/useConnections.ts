@@ -36,9 +36,14 @@ export function useConnections() {
     return updated;
   };
 
-  const deleteConnection = async (id: string): Promise<void> => {
-    await connectionAPI.delete(id);
-    setConnections(prev => prev.filter(conn => conn._id !== id));
+  const archiveConnection = async (id: string): Promise<void> => {
+    const archived = await connectionAPI.archive(id);
+    setConnections(prev => prev.map(conn => conn._id === id ? archived : conn));
+  };
+
+  const restoreConnection = async (id: string): Promise<void> => {
+    const restored = await connectionAPI.restore(id);
+    setConnections(prev => prev.map(conn => conn._id === id ? restored : conn));
   };
 
   return {
@@ -48,6 +53,7 @@ export function useConnections() {
     fetchConnections,
     createConnection,
     updateConnection,
-    deleteConnection,
+    archiveConnection,
+    restoreConnection,
   };
 }

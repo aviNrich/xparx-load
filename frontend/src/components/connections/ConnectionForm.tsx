@@ -209,7 +209,7 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, onFileUploadSu
 
       <div>
         <Label htmlFor="db_type" className="text-neutral-900 text-sm font-medium">
-          Priority<span className="text-red-500">*</span>
+          Source Type<span className="text-red-500">*</span>
         </Label>
         <div className="mt-2">
           <Combobox

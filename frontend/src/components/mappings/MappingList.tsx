@@ -6,7 +6,7 @@ import { MappingRun } from '../../types/mappingRun';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
-import { Pencil, Trash2, Workflow, Plus, Eye, Database, History } from 'lucide-react';
+import { Pencil, Trash2, Workflow, Plus, Eye, Database, History, ArchiveRestore } from 'lucide-react';
 import { RunHistoryTable } from '../history/RunHistoryTable';
 import { RunDetailsModal } from '../history/RunDetailsModal';
 
@@ -224,9 +224,10 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => onDelete(mapping)}
-                                className="border-red-200 text-red-600 hover:bg-red-50"
+                                className={mapping.archived ? "border-green-200 text-green-600 hover:bg-green-50" : "border-red-200 text-red-600 hover:bg-red-50"}
+                                title={mapping.archived ? "Restore" : "Archive"}
                               >
-                                <Trash2 className="h-3 w-3" />
+                                {mapping.archived ? <ArchiveRestore className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
                               </Button>
                             )}
                           </div>
