@@ -92,7 +92,7 @@ def preview_data(request: PreviewRequest, db: Database = Depends(get_database)):
             # Read all files based on file type
             if file_type == "csv":
                 dfs = [
-                    spark.read.csv(fp, header=True, inferSchema=True)
+                    spark.read.csv(fp, header=True, inferSchema=False)
                     for fp in file_paths
                 ]
             elif file_type == "json":
@@ -145,7 +145,7 @@ def preview_data(request: PreviewRequest, db: Database = Depends(get_database)):
                     row_list.append(None)
                 elif isinstance(val, (pd.Timestamp, pd.DatetimeTZDtype)):
                     row_list.append(str(val))
-                elif hasattr(val, 'item'):  # numpy types
+                elif hasattr(val, "item"):  # numpy types
                     row_list.append(val.item())
                 else:
                     row_list.append(val)
@@ -164,11 +164,11 @@ def preview_data(request: PreviewRequest, db: Database = Depends(get_database)):
         # Check for SQL syntax errors
         if "SQLSyntaxErrorException" in error_str or "SQLException" in error_str:
             # Extract just the SQL error message
-            lines = error_str.split('\n')
+            lines = error_str.split("\n")
             sql_error_line = None
             for line in lines:
                 if "SQLSyntaxErrorException:" in line or "SQLException:" in line:
-                    sql_error_line = line.split(':', 1)[-1].strip()
+                    sql_error_line = line.split(":", 1)[-1].strip()
                     break
 
             if sql_error_line:
@@ -177,7 +177,7 @@ def preview_data(request: PreviewRequest, db: Database = Depends(get_database)):
                 detail_msg = f"SQL Error: {lines[0] if lines else error_str}"
         else:
             # For other errors, just show the first line
-            detail_msg = error_str.split('\n')[0] if '\n' in error_str else error_str
+            detail_msg = error_str.split("\n")[0] if "\n" in error_str else error_str
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
