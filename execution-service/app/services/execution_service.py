@@ -19,9 +19,11 @@ from ..utils.exceptions import (
     TransformationError,
 )
 from ..utils.encryption import decrypt_password
-from .delta_writer import write_to_delta_lake, write_to_silver_lake, get_spark_session
-from .bronze_writer import write_to_bronze_lake, read_from_bronze_lake
+from .delta_writer import get_spark_session
+from .bronze_writer_class import BronzeWriter
+from .silver_writer_class import SilverWriter
 from .target_execution import execute_target_write
+from ..config import get_settings
 
 
 class ExecutionService:
@@ -32,6 +34,11 @@ class ExecutionService:
         self.column_mappings_collection = db["column_mappings"]
         self.schemas_collection = db["table_schemas"]
         self.mapping_runs_collection = db["mapping_runs"]
+
+        # Initialize writer classes
+        settings = get_settings()
+        self.bronze_writer = BronzeWriter(base_path=settings.delta_lake_base_path)
+        self.silver_writer = SilverWriter(base_path=settings.delta_lake_base_path)
 
     def execute_mapping(
         self,
@@ -97,7 +104,7 @@ class ExecutionService:
 
             # Step 3: Write to bronze layer (raw SQL query result)
             error_stage = "bronze_write"
-            bronze_table_path, bronze_row_count = write_to_bronze_lake(
+            bronze_table_path, bronze_row_count = self.bronze_writer.write(
                 df=source_df,
                 mapping_id=mapping_id,
                 run_id=run_id,
@@ -107,7 +114,7 @@ class ExecutionService:
 
             # Step 4: Read from bronze layer (for idempotency)
             error_stage = "bronze_read"
-            bronze_df = read_from_bronze_lake(bronze_table_path, run_id=run_id)
+            bronze_df = self.bronze_writer.read(mapping_id=mapping_id, run_id=run_id)
 
             # Step 5-7: Loop through all target schemas (silver layer)
             total_rows_written = 0
@@ -136,7 +143,7 @@ class ExecutionService:
                 # Step 6: Write to silver layer for this schema
                 error_stage = f"silver_write_{schema_name}"
                 silver_run_id = f"{run_id}_silver_{schema_name}"
-                silver_table_path, row_count = write_to_silver_lake(
+                silver_table_path, row_count = self.silver_writer.write(
                     df=transformed_df,
                     schema_name=schema_config["target_schema"]["name"],
                     schema_fields=schema_config["target_schema"]["fields"],
