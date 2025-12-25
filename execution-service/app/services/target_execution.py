@@ -43,7 +43,9 @@ class TargetExecutionService:
 
         try:
             # Step 1: Read data from Delta table filtered by run_id
-            logger.info(f"Reading Delta table from {delta_table_path} for run_id: {run_id}")
+            logger.info(
+                f"Reading Delta table from {delta_table_path} for run_id: {run_id}"
+            )
             df = self._read_delta_table(delta_table_path, run_id)
 
             # Step 2: Get target database settings from backend
@@ -153,43 +155,43 @@ class TargetExecutionService:
     ) -> int:
         """Write Spark DataFrame to target PostgreSQL database using Spark JDBC"""
 
-        context = {"source_id": source_id}
-        try:
-            handler = TargetHandlers.get_handler(schema_handler)
-            res = handler(df, context)
-            writer = self.get_pg_writer(
-                res["df"], target_db_config, res["table_name"], "append"
-            )
-            writer.save()
+        # context = {"source_id": source_id}
+        # try:
+        #     handler = TargetHandlers.get_handler(schema_handler)
+        #     res = handler(df, context)
+        #     writer = self.get_pg_writer(
+        #         res["df"], target_db_config, res["table_name"], "append"
+        #     )
+        #     writer.save()
 
-            res["df"].show(5, truncate=False)
+        #     res["df"].show(5, truncate=False)
 
-            if "related_df" in res:
-                self._write_related_with_conflict_handling(
-                    res["related_df"], target_db_config, res["related_table"]
-                )
-                res["related_df"].show(5, truncate=False)
-            w = Window.partitionBy(res["related_poi_col"]).orderBy("id")
-            poi_df = (
-                res["df"]
-                .withColumn("rn", F.row_number().over(w))
-                .filter(F.col("rn") == 1)
-                .drop("rn")
-                .select(
-                    F.col(res["related_poi_col"]).alias("id"),
-                    F.col("id").alias(res["primary_col"]),  # keep the original id too
-                    "source_id",
-                    "source_item_id",
-                )
-            )
+        #     if "related_df" in res:
+        #         self._write_related_with_conflict_handling(
+        #             res["related_df"], target_db_config, res["related_table"]
+        #         )
+        #         res["related_df"].show(5, truncate=False)
+        #     w = Window.partitionBy(res["related_poi_col"]).orderBy("id")
+        #     poi_df = (
+        #         res["df"]
+        #         .withColumn("rn", F.row_number().over(w))
+        #         .filter(F.col("rn") == 1)
+        #         .drop("rn")
+        #         .select(
+        #             F.col(res["related_poi_col"]).alias("id"),
+        #             F.col("id").alias(res["primary_col"]),  # keep the original id too
+        #             "source_id",
+        #             "source_item_id",
+        #         )
+        #     )
 
-            self._write_poi(poi_df, target_db_config)
+        #     self._write_poi(poi_df, target_db_config)
 
-        except ValueError as e:
-            logger.warning(
-                f"Handler error: {str(e)}. Writing without handler transformations."
-            )
-        return df.count()
+        # except ValueError as e:
+        #     logger.warning(
+        #         f"Handler error: {str(e)}. Writing without handler transformations."
+        #     )
+        # return df.count()
 
     def _write_poi(self, df: DataFrame, target_db_config: Dict[str, Any]) -> None:
         temp_table = f"person_of_interest_temp_{int(time.time())}"

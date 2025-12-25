@@ -1,5 +1,12 @@
 from pyspark.sql import SparkSession, DataFrame, functions as F
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, BooleanType
+from pyspark.sql.types import (
+    StructType,
+    StructField,
+    StringType,
+    IntegerType,
+    DateType,
+    BooleanType,
+)
 from delta.tables import DeltaTable
 from typing import List, Dict, Any, Optional
 import os
@@ -29,6 +36,7 @@ class SilverWriter:
         """Get Spark session, creating if necessary."""
         if self._spark is None:
             from .delta_writer import get_spark_session
+
             self._spark = get_spark_session()
         return self._spark
 
@@ -96,11 +104,7 @@ class SilverWriter:
             cleaned_df = cleaned_df.select(*columns_to_select)
 
             # Construct silver table path: silver/{schema_name}/
-            silver_table_path = os.path.join(
-                self.base_path,
-                "silver",
-                schema_name
-            )
+            silver_table_path = os.path.join(self.base_path, "silver", schema_name)
 
             # Check if table exists and validate schema
             if DeltaTable.isDeltaTable(self.spark, silver_table_path):
@@ -116,9 +120,7 @@ class SilverWriter:
                 # Use overwriteSchema to allow entity_root_id/entity_id type changes
                 cleaned_df.write.format("delta").mode("append").option(
                     "mergeSchema", "true"
-                ).option(
-                    "overwriteSchema", "true"
-                ).save(silver_table_path)
+                ).option("overwriteSchema", "true").save(silver_table_path)
             else:
                 # First write - create new table
                 cleaned_df.write.format("delta").mode("append").save(silver_table_path)
@@ -143,11 +145,7 @@ class SilverWriter:
         Returns:
             Silver table path
         """
-        return os.path.join(
-            self.base_path,
-            "silver",
-            schema_name
-        )
+        return os.path.join(self.base_path, "silver", schema_name)
 
     def table_exists(self, schema_name: str) -> bool:
         """
@@ -166,7 +164,7 @@ class SilverWriter:
         self,
         existing_schema: StructType,
         new_schema: StructType,
-        allow_new_columns: bool = True
+        allow_new_columns: bool = True,
     ) -> None:
         """
         Validate that new schema is compatible with existing schema.
@@ -179,7 +177,9 @@ class SilverWriter:
         Raises:
             SchemaValidationError: If schemas are incompatible
         """
-        existing_fields = {field.name: field.dataType for field in existing_schema.fields}
+        existing_fields = {
+            field.name: field.dataType for field in existing_schema.fields
+        }
         new_fields = {field.name: field.dataType for field in new_schema.fields}
 
         # Check for type changes in existing columns
@@ -206,9 +206,7 @@ class SilverWriter:
             raise SchemaValidationError(f"New columns are not allowed: {new_columns}")
 
     def _create_spark_schema(
-        self,
-        schema_fields: List[Dict[str, str]],
-        data: List[Dict[str, Any]]
+        self, schema_fields: List[Dict[str, str]], data: List[Dict[str, Any]]
     ) -> StructType:
         """Create Spark StructType from schema fields."""
         fields = []
@@ -220,7 +218,9 @@ class SilverWriter:
         if data and len(data) > 0:
             sample_row = data[0]
             if "entity_root_id" in sample_row:
-                fields.append(StructField("entity_root_id", StringType(), nullable=True))
+                fields.append(
+                    StructField("entity_root_id", StringType(), nullable=True)
+                )
             if "entity_id" in sample_row:
                 fields.append(StructField("entity_id", StringType(), nullable=True))
 
@@ -242,9 +242,7 @@ class SilverWriter:
         return type_mapping.get(field_type, StringType())
 
     def _clean_data_for_schema(
-        self,
-        df: DataFrame,
-        schema_fields: List[Dict[str, str]]
+        self, df: DataFrame, schema_fields: List[Dict[str, str]]
     ) -> DataFrame:
         """
         Clean Spark DataFrame to match schema types using PySpark transformations.
@@ -294,7 +292,9 @@ class SilverWriter:
             elif field_type == "date":
                 col = F.col(col_name)
                 cleaned_col = (
-                    F.when(col.isNull(), None).otherwise(col.cast("date")).alias(col_name)
+                    F.when(col.isNull(), None)
+                    .otherwise(col.cast("date"))
+                    .alias(col_name)
                 )
                 cleaned_columns.append(cleaned_col)
             else:
@@ -307,6 +307,7 @@ class SilverWriter:
     def _clean_boolean_column(self, col_name: str):
         """Clean boolean column with comprehensive type handling."""
         from pyspark.sql.column import Column
+
         col = F.col(col_name)
         col_str = col.cast("string")
 
@@ -332,11 +333,7 @@ class SilverWriter:
         """Clean integer column, converting NaN to null."""
         col = F.col(col_name)
 
-        return (
-            F.when(col.isNull(), None)
-            .otherwise(col.cast("integer"))
-            .alias(col_name)
-        )
+        return F.when(col.isNull(), None).otherwise(col.cast("integer")).alias(col_name)
 
     def _clean_general_column(self, col_name: str):
         """Clean general column (string, date) - convert NaN to null."""

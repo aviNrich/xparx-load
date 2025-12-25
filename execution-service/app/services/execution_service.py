@@ -22,6 +22,7 @@ from ..utils.encryption import decrypt_password
 from .delta_writer import get_spark_session
 from .bronze_writer_class import BronzeWriter
 from .silver_writer_class import SilverWriter
+from .gold_writer_class import GoldWriter
 from .target_execution import execute_target_write
 from ..config import get_settings
 
@@ -39,6 +40,7 @@ class ExecutionService:
         settings = get_settings()
         self.bronze_writer = BronzeWriter(base_path=settings.delta_lake_base_path)
         self.silver_writer = SilverWriter(base_path=settings.delta_lake_base_path)
+        self.gold_writer = GoldWriter(base_path=settings.delta_lake_base_path)
 
     def execute_mapping(
         self,
@@ -156,6 +158,87 @@ class ExecutionService:
                 all_silver_paths.append(silver_table_path)
                 total_rows_written += row_count
 
+                # Step 6.5: Write to gold layer for this schema (if handler exists)
+                gold_result = None
+                schema_handler = schema_config["target_schema"].get("schema_handler")
+                if schema_handler:
+                    error_stage = f"gold_write_{schema_name}"
+                    gold_run_id = f"{run_id}_gold_{schema_name}"
+
+                    # Prepare context for handler
+                    context = {
+                        "source_id": source_id,
+                        "mapping_id": mapping_id,
+                    }
+
+                    try:
+                        gold_result = self.gold_writer.write(
+                            df=transformed_df,  # Use transformed_df from silver
+                            schema_handler=schema_handler,
+                            context=context,
+                            mapping_id=mapping_id,
+                            run_id=gold_run_id,
+                            execution_time=start_time.isoformat(),
+                            silver_run_id=silver_run_id,
+                        )
+                        print(f"✓ Gold layer: {gold_result['main']['row_count']} rows written to {gold_result['main']['table_name']}", file=sys.stderr)
+                        if gold_result['related']:
+                            print(f"✓ Gold layer (related): {gold_result['related']['row_count']} rows written to {gold_result['related']['table_name']}", file=sys.stderr)
+
+                        # Step 6.6: Extract and write PoI data to Gold layer
+                        # This creates the Person of Interest record from the handler result
+                        try:
+                            handler_metadata = gold_result.get("handler_metadata", {})
+                            related_poi_col = handler_metadata.get("related_poi_col")
+                            primary_col = handler_metadata.get("primary_col")
+
+                            if related_poi_col and primary_col:
+                                # Reuse handler_result from gold_result to avoid duplicate execution
+                                from pyspark.sql.window import Window
+                                handler_result = gold_result.get("handler_result")
+
+                                if handler_result:
+                                    # Create PoI DataFrame with same logic as target_execution.py
+                                    w = Window.partitionBy(related_poi_col).orderBy("id")
+                                    poi_df = (
+                                        handler_result["df"]
+                                        .withColumn("rn", F.row_number().over(w))
+                                        .filter(F.col("rn") == 1)
+                                        .drop("rn")
+                                        .select(
+                                            F.col(related_poi_col).alias("id"),
+                                            F.col("id").alias(primary_col),
+                                            "source_id",
+                                            "source_item_id",
+                                        )
+                                    )
+
+                                    # Check if PoI DataFrame has data before writing
+                                    if poi_df.count() > 0:
+                                        # Write PoI to Gold layer
+                                        poi_result = self.gold_writer.write_poi(
+                                            df=poi_df,
+                                            mapping_id=mapping_id,
+                                            run_id=gold_run_id,
+                                            execution_time=start_time.isoformat(),
+                                            silver_run_id=silver_run_id,
+                                        )
+                                        print(f"✓ Gold layer (PoI): {poi_result['row_count']} PoI records written/updated", file=sys.stderr)
+                                    else:
+                                        print(f"⚠ Skipping PoI write for {schema_name}: no PoI data to write", file=sys.stderr)
+                                else:
+                                    print(f"⚠ Skipping PoI write for {schema_name}: handler_result not available", file=sys.stderr)
+                            else:
+                                print(f"⚠ Skipping PoI write for {schema_name}: missing handler metadata", file=sys.stderr)
+
+                        except Exception as poi_error:
+                            print(f"⚠ Gold layer PoI write failed for {schema_name}: {str(poi_error)}", file=sys.stderr)
+                            # Continue execution even if PoI write fails
+
+                    except Exception as e:
+                        print(f"⚠ Gold layer write failed for {schema_name}: {str(e)}", file=sys.stderr)
+                        # Continue execution even if gold write fails
+
                 # Step 7: Write to target database for this schema
                 error_stage = f"target_write_{schema_name}"
                 target_result = execute_target_write(
@@ -166,7 +249,7 @@ class ExecutionService:
                         "rows_written": row_count,
                         "execution_time": start_time.isoformat(),
                         "delta_table_path": silver_table_path,  # Use silver path
-                        "schema_handler": schema_config["target_schema"]["schema_handler"],
+                        "schema_handler": schema_handler,
                         "source_id": source_id,
                     }
                 )
