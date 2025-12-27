@@ -292,6 +292,8 @@ class GoldHandlers:
             GoldHandlers.value_id_col("phone_number").alias("id"),
             df.phone_number.alias("original_value"),
             df.phone_number.alias("sanitized_value"),
+            df.mobile_carrier.alias("mobile_carrier"),
+            df.type.alias("phone_type"),
             *[
                 col for col in df.columns if col.startswith("_gold_")
             ],  # Include metadata
