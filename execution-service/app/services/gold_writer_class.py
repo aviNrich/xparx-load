@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 import os
 import sys
 from ..utils.exceptions import DeltaWriteError
-from .target_handlers import TargetHandlers
+from .gold_handlers import GoldHandlers
 
 
 class GoldWriter:
@@ -29,6 +29,7 @@ class GoldWriter:
         """Get Spark session, creating if necessary."""
         if self._spark is None:
             from .delta_writer import get_spark_session
+
             self._spark = get_spark_session()
         return self._spark
 
@@ -43,12 +44,12 @@ class GoldWriter:
         silver_run_id: str,
     ) -> Dict[str, Any]:
         """
-        Write DataFrame to gold layer with handler transformations applied.
+        Inject metadata and delegate writing to handler.
 
-        The handler prepares data for business consumption by:
-        - Calculating UUIDs for relationships
-        - Creating dimension/lookup tables
-        - Structuring data for specific business domains
+        The handler is responsible for:
+        - Transforming the data
+        - Writing main, related, and PoI tables to Delta Lake
+        - Returning write results
 
         Args:
             df: Silver layer DataFrame
@@ -60,18 +61,11 @@ class GoldWriter:
             silver_run_id: Source silver run ID for lineage
 
         Returns:
-            Dict with main and related table info:
+            Dict with write results from handler:
             {
-                "main": {
-                    "table_name": "email_address_to_entities",
-                    "table_path": "gold/email_address_to_entities/",
-                    "row_count": 1000
-                },
-                "related": {
-                    "table_name": "email",
-                    "table_path": "gold/email/",
-                    "row_count": 500
-                } or None if no related table
+                "main": {"table_name": str, "row_count": int},
+                "related": {"table_name": str, "row_count": int} or None,
+                "poi": {"row_count": int} or None
             }
 
         Raises:
@@ -79,58 +73,20 @@ class GoldWriter:
             ValueError: If handler not found
         """
         try:
+            # Inject gold layer metadata columns
+            gold_df = df.withColumn("_gold_mapping_id", F.lit(mapping_id))
+            gold_df = gold_df.withColumn("_gold_run_id", F.lit(run_id))
+            gold_df = gold_df.withColumn("_gold_execution_time", F.lit(execution_time))
+            gold_df = gold_df.withColumn("_gold_silver_run_id", F.lit(silver_run_id))
+
             # Get the handler function
-            handler = TargetHandlers.get_handler(schema_handler)
+            handler = GoldHandlers.get_handler(schema_handler)
 
-            # Apply handler transformation
-            handler_result = handler(df, context)
+            # Call handler with metadata-enriched DataFrame and base_path
+            # Handler is responsible for writing data
+            handler_result = handler(gold_df, context, self.base_path, self.spark)
 
-            # Extract components from handler result
-            main_df = handler_result["df"]
-            main_table_name = handler_result["table_name"]
-            related_df = handler_result.get("related_df")
-            related_table_name = handler_result.get("related_table")
-
-            # Write main table
-            main_result = self._write_table(
-                df=main_df,
-                table_name=main_table_name,
-                mapping_id=mapping_id,
-                run_id=run_id,
-                execution_time=execution_time,
-                silver_run_id=silver_run_id,
-            )
-
-            print(
-                f"✓ Gold layer (main): {main_result['row_count']} rows written to {main_result['table_name']}",
-                file=sys.stderr
-            )
-
-            # Write related table if present
-            related_result = None
-            if related_df is not None and related_table_name:
-                related_result = self._write_table(
-                    df=related_df,
-                    table_name=related_table_name,
-                    mapping_id=mapping_id,
-                    run_id=run_id,
-                    execution_time=execution_time,
-                    silver_run_id=silver_run_id,
-                )
-                print(
-                    f"✓ Gold layer (related): {related_result['row_count']} rows written to {related_result['table_name']}",
-                    file=sys.stderr
-                )
-
-            return {
-                "main": main_result,
-                "related": related_result,
-                "handler_metadata": {
-                    "primary_col": handler_result.get("primary_col"),
-                    "related_poi_col": handler_result.get("related_poi_col"),
-                },
-                "handler_result": handler_result,  # Include full handler result for reuse
-            }
+            return handler_result
 
         except ValueError as e:
             # Handler not found or invalid
@@ -171,11 +127,9 @@ class GoldWriter:
         gold_table_path = os.path.join(self.base_path, "gold", table_name)
 
         # Write to gold layer (append mode with schema evolution)
-        gold_df.write \
-            .format("delta") \
-            .mode("append") \
-            .option("mergeSchema", "true") \
-            .save(gold_table_path)
+        gold_df.write.format("delta").mode("append").option("mergeSchema", "true").save(
+            gold_table_path
+        )
 
         # Get row count
         row_count = gold_df.count()
@@ -304,7 +258,7 @@ class GoldWriter:
 
             print(
                 f"✓ Gold layer (PoI): {result['row_count']} rows written/updated to {result['table_name']}",
-                file=sys.stderr
+                file=sys.stderr,
             )
 
             return result
@@ -365,17 +319,27 @@ class GoldWriter:
                 # Add missing columns to target table with NULL values
                 # This is done by writing a dummy row with the new schema, then removing it
                 # Delta Lake will merge the schemas
-                print(f"  Adding new columns to PoI table: {', '.join(new_columns)}", file=sys.stderr)
+                print(
+                    f"  Adding new columns to PoI table: {', '.join(new_columns)}",
+                    file=sys.stderr,
+                )
 
                 # Create a DataFrame with just one dummy row containing all columns
                 dummy_row = {col: None for col in gold_df.columns}
-                dummy_row["id"] = "__DUMMY_ROW_FOR_SCHEMA__"  # Unique ID that won't conflict
+                dummy_row["id"] = (
+                    "__DUMMY_ROW_FOR_SCHEMA__"  # Unique ID that won't conflict
+                )
 
                 from pyspark.sql import Row
-                dummy_df = self.spark.createDataFrame([Row(**dummy_row)], schema=gold_df.schema)
+
+                dummy_df = self.spark.createDataFrame(
+                    [Row(**dummy_row)], schema=gold_df.schema
+                )
 
                 # Append with schema merge to add new columns
-                dummy_df.write.format("delta").mode("append").option("mergeSchema", "true").save(gold_table_path)
+                dummy_df.write.format("delta").mode("append").option(
+                    "mergeSchema", "true"
+                ).save(gold_table_path)
 
                 # Delete the dummy row
                 delta_table = DeltaTable.forPath(self.spark, gold_table_path)
@@ -386,15 +350,22 @@ class GoldWriter:
                 existing_columns = set(delta_table.toDF().columns)
 
             # Get all columns from the DataFrame (excluding metadata for matching)
-            data_columns = [col for col in gold_df.columns if not col.startswith("_gold_")]
+            data_columns = [
+                col for col in gold_df.columns if not col.startswith("_gold_")
+            ]
 
             # Build COALESCE update expressions for primary columns
             # This ensures we only update if the existing value is NULL
             update_expressions = {}
             for col_name in data_columns:
-                if col_name.startswith("primary_") or col_name in ["source_id", "source_item_id"]:
+                if col_name.startswith("primary_") or col_name in [
+                    "source_id",
+                    "source_item_id",
+                ]:
                     # For primary columns: COALESCE(existing, new) - keep existing if not null
-                    update_expressions[col_name] = F.coalesce(F.col(f"target.{col_name}"), F.col(f"source.{col_name}"))
+                    update_expressions[col_name] = F.coalesce(
+                        F.col(f"target.{col_name}"), F.col(f"source.{col_name}")
+                    )
                 else:
                     # For other columns: just update with new value
                     update_expressions[col_name] = F.col(f"source.{col_name}")
@@ -406,8 +377,7 @@ class GoldWriter:
 
             # Perform merge
             delta_table.alias("target").merge(
-                gold_df.alias("source"),
-                "target.id = source.id"
+                gold_df.alias("source"), "target.id = source.id"
             ).whenMatchedUpdate(
                 set=update_expressions
             ).whenNotMatchedInsertAll().execute()

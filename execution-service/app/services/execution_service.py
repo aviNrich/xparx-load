@@ -46,7 +46,7 @@ class ExecutionService:
         self,
         mapping_id: str,
         trigger_type: str = "manual",
-        schedule_id: Optional[str] = None
+        schedule_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute ETL mapping by ID.
@@ -112,7 +112,10 @@ class ExecutionService:
                 run_id=run_id,
                 ingestion_time=start_time.isoformat(),
             )
-            print(f"✓ Bronze layer: {bronze_row_count} rows written to {bronze_table_path}", file=sys.stderr)
+            print(
+                f"✓ Bronze layer: {bronze_row_count} rows written to {bronze_table_path}",
+                file=sys.stderr,
+            )
 
             # Step 4: Read from bronze layer (for idempotency)
             error_stage = "bronze_read"
@@ -124,23 +127,37 @@ class ExecutionService:
             all_silver_paths = []
             all_target_results = []
 
-            print(f"\n{'='*80}", file=sys.stderr)
-            print(f"Starting multi-schema execution for mapping_id={mapping_id}", file=sys.stderr)
-            print(f"Total schemas to process: {len(mapping_config['target_schema_configs'])}", file=sys.stderr)
-            print(f"{'='*80}\n", file=sys.stderr)
+            print(f"\n{'=' * 80}", file=sys.stderr)
+            print(
+                f"Starting multi-schema execution for mapping_id={mapping_id}",
+                file=sys.stderr,
+            )
+            print(
+                f"Total schemas to process: {len(mapping_config['target_schema_configs'])}",
+                file=sys.stderr,
+            )
+            print(f"{'=' * 80}\n", file=sys.stderr)
 
-            for idx, schema_config in enumerate(mapping_config["target_schema_configs"]):
+            for idx, schema_config in enumerate(
+                mapping_config["target_schema_configs"]
+            ):
                 schema_name = schema_config["target_schema"]["name"]
-                print(f"\n[{idx + 1}/{len(mapping_config['target_schema_configs'])}] Processing schema: {schema_name}", file=sys.stderr)
+                print(
+                    f"\n[{idx + 1}/{len(mapping_config['target_schema_configs'])}] Processing schema: {schema_name}",
+                    file=sys.stderr,
+                )
 
                 # Step 5: Transform data from bronze for this schema
                 error_stage = f"transformation_{schema_name}"
-                transformed_df = self._transform_data(bronze_df, {
-                    "mapping": mapping_config["mapping"],
-                    "connection": mapping_config["connection"],
-                    "column_mappings": schema_config["column_mappings"],
-                    "target_schema": schema_config["target_schema"],
-                })
+                transformed_df = self._transform_data(
+                    bronze_df,
+                    {
+                        "mapping": mapping_config["mapping"],
+                        "connection": mapping_config["connection"],
+                        "column_mappings": schema_config["column_mappings"],
+                        "target_schema": schema_config["target_schema"],
+                    },
+                )
 
                 # Step 6: Write to silver layer for this schema
                 error_stage = f"silver_write_{schema_name}"
@@ -159,7 +176,8 @@ class ExecutionService:
                 total_rows_written += row_count
 
                 # Step 6.5: Write to gold layer for this schema (if handler exists)
-                gold_result = None
+                # Handler now writes data itself (main, related, and PoI tables)
+
                 schema_handler = schema_config["target_schema"].get("schema_handler")
                 if schema_handler:
                     error_stage = f"gold_write_{schema_name}"
@@ -172,7 +190,8 @@ class ExecutionService:
                     }
 
                     try:
-                        gold_result = self.gold_writer.write(
+                        # Handler writes main, related, and PoI tables itself
+                        self.gold_writer.write(
                             df=transformed_df,  # Use transformed_df from silver
                             schema_handler=schema_handler,
                             context=context,
@@ -181,62 +200,13 @@ class ExecutionService:
                             execution_time=start_time.isoformat(),
                             silver_run_id=silver_run_id,
                         )
-                        print(f"✓ Gold layer: {gold_result['main']['row_count']} rows written to {gold_result['main']['table_name']}", file=sys.stderr)
-                        if gold_result['related']:
-                            print(f"✓ Gold layer (related): {gold_result['related']['row_count']} rows written to {gold_result['related']['table_name']}", file=sys.stderr)
-
-                        # Step 6.6: Extract and write PoI data to Gold layer
-                        # This creates the Person of Interest record from the handler result
-                        try:
-                            handler_metadata = gold_result.get("handler_metadata", {})
-                            related_poi_col = handler_metadata.get("related_poi_col")
-                            primary_col = handler_metadata.get("primary_col")
-
-                            if related_poi_col and primary_col:
-                                # Reuse handler_result from gold_result to avoid duplicate execution
-                                from pyspark.sql.window import Window
-                                handler_result = gold_result.get("handler_result")
-
-                                if handler_result:
-                                    # Create PoI DataFrame with same logic as target_execution.py
-                                    w = Window.partitionBy(related_poi_col).orderBy("id")
-                                    poi_df = (
-                                        handler_result["df"]
-                                        .withColumn("rn", F.row_number().over(w))
-                                        .filter(F.col("rn") == 1)
-                                        .drop("rn")
-                                        .select(
-                                            F.col(related_poi_col).alias("id"),
-                                            F.col("id").alias(primary_col),
-                                            "source_id",
-                                            "source_item_id",
-                                        )
-                                    )
-
-                                    # Check if PoI DataFrame has data before writing
-                                    if poi_df.count() > 0:
-                                        # Write PoI to Gold layer
-                                        poi_result = self.gold_writer.write_poi(
-                                            df=poi_df,
-                                            mapping_id=mapping_id,
-                                            run_id=gold_run_id,
-                                            execution_time=start_time.isoformat(),
-                                            silver_run_id=silver_run_id,
-                                        )
-                                        print(f"✓ Gold layer (PoI): {poi_result['row_count']} PoI records written/updated", file=sys.stderr)
-                                    else:
-                                        print(f"⚠ Skipping PoI write for {schema_name}: no PoI data to write", file=sys.stderr)
-                                else:
-                                    print(f"⚠ Skipping PoI write for {schema_name}: handler_result not available", file=sys.stderr)
-                            else:
-                                print(f"⚠ Skipping PoI write for {schema_name}: missing handler metadata", file=sys.stderr)
-
-                        except Exception as poi_error:
-                            print(f"⚠ Gold layer PoI write failed for {schema_name}: {str(poi_error)}", file=sys.stderr)
-                            # Continue execution even if PoI write fails
+                        # Handlers now print their own messages and handle all writes
 
                     except Exception as e:
-                        print(f"⚠ Gold layer write failed for {schema_name}: {str(e)}", file=sys.stderr)
+                        print(
+                            f"⚠ Gold layer write failed for {schema_name}: {str(e)}",
+                            file=sys.stderr,
+                        )
                         # Continue execution even if gold write fails
 
                 # Step 7: Write to target database for this schema
@@ -257,7 +227,10 @@ class ExecutionService:
                 all_target_results.append(target_result)
                 total_rows_to_target += target_result.get("rows_written_to_target", 0)
 
-                print(f"✓ Completed schema {schema_name}: {row_count} rows written to Silver, {target_result.get('rows_written_to_target', 0)} to target", file=sys.stderr)
+                print(
+                    f"✓ Completed schema {schema_name}: {row_count} rows written to Silver, {target_result.get('rows_written_to_target', 0)} to target",
+                    file=sys.stderr,
+                )
 
             # Calculate duration
             end_time = datetime.utcnow()
@@ -287,13 +260,17 @@ class ExecutionService:
                         "rows_written_to_delta": total_rows_written,  # Keep old field for compatibility
                         "rows_written_to_silver": total_rows_written,
                         "rows_written_to_target": total_rows_to_target,
-                        "delta_table_path": ", ".join(all_silver_paths),  # Keep old field
+                        "delta_table_path": ", ".join(
+                            all_silver_paths
+                        ),  # Keep old field
                         "silver_table_paths": ", ".join(all_silver_paths),
-                        "target_write_status": "success" if all_success else "partial_success",
+                        "target_write_status": "success"
+                        if all_success
+                        else "partial_success",
                         "error_message": None,
                         "updated_at": end_time,
                     }
-                }
+                },
             )
 
             return {
@@ -325,13 +302,16 @@ class ExecutionService:
             stack_trace = traceback.format_exc()
 
             # LOG TO STDOUT with full stack trace
-            print(f"\n{'='*80}", file=sys.stderr)
-            print(f"ERROR in execution for mapping_id={mapping_id}, run_id={run_id}", file=sys.stderr)
+            print(f"\n{'=' * 80}", file=sys.stderr)
+            print(
+                f"ERROR in execution for mapping_id={mapping_id}, run_id={run_id}",
+                file=sys.stderr,
+            )
             print(f"Error Stage: {error_stage}", file=sys.stderr)
             print(f"Error Message: {str(e)}", file=sys.stderr)
             print(f"Full Stack Trace:", file=sys.stderr)
             print(stack_trace, file=sys.stderr)
-            print(f"{'='*80}\n", file=sys.stderr)
+            print(f"{'=' * 80}\n", file=sys.stderr)
 
             # Update run record in MongoDB with error_message AND stack trace
             self.mapping_runs_collection.update_one(
@@ -348,7 +328,7 @@ class ExecutionService:
                         "error_stack_trace": stack_trace,  # Already saving to MongoDB
                         "updated_at": end_time,
                     }
-                }
+                },
             )
 
             # Return response with error_message AND stack_trace
@@ -391,7 +371,10 @@ class ExecutionService:
             )
 
         # Load all target schemas
-        if "target_schemas" not in column_mapping or not column_mapping["target_schemas"]:
+        if (
+            "target_schemas" not in column_mapping
+            or not column_mapping["target_schemas"]
+        ):
             raise ColumnMappingNotFoundError(
                 f"No target schemas configured for mapping: {mapping_id}"
             )
@@ -410,10 +393,12 @@ class ExecutionService:
                     f"Target schema not found: {target_schema_id}"
                 )
 
-            target_schema_configs.append({
-                "column_mappings": column_mappings_list,
-                "target_schema": target_schema,
-            })
+            target_schema_configs.append(
+                {
+                    "column_mappings": column_mappings_list,
+                    "target_schema": target_schema,
+                }
+            )
 
         return {
             "mapping": mapping,
@@ -447,16 +432,17 @@ class ExecutionService:
                     driver = "org.postgresql.Driver"
 
                 # Read using Spark JDBC with query pushdown
-                df = spark.read \
-                    .format("jdbc") \
-                    .option("url", jdbc_url) \
-                    .option("query", mapping["sql_query"]) \
-                    .option("user", username) \
-                    .option("password", password) \
-                    .option("driver", driver) \
-                    .option("fetchsize", "10000") \
-                    .option("numPartitions", "4") \
+                df = (
+                    spark.read.format("jdbc")
+                    .option("url", jdbc_url)
+                    .option("query", mapping["sql_query"])
+                    .option("user", username)
+                    .option("password", password)
+                    .option("driver", driver)
+                    .option("fetchsize", "10000")
+                    .option("numPartitions", "4")
                     .load()
+                )
 
             elif db_type == "file":
                 # File source - load files and execute SQL
@@ -468,15 +454,22 @@ class ExecutionService:
 
                 # Read all files based on file type
                 from functools import reduce
+
                 if file_type == "csv":
-                    dfs = [spark.read.csv(fp, header=True, inferSchema=True) for fp in file_paths]
+                    dfs = [
+                        spark.read.csv(fp, header=True, inferSchema=True)
+                        for fp in file_paths
+                    ]
                 elif file_type == "json":
                     dfs = [spark.read.json(fp) for fp in file_paths]
                 elif file_type == "excel":
-                    dfs = [spark.read.format("com.crealytics.spark.excel")
-                          .option("header", "true")
-                          .option("inferSchema", "true")
-                          .load(fp) for fp in file_paths]
+                    dfs = [
+                        spark.read.format("com.crealytics.spark.excel")
+                        .option("header", "true")
+                        .option("inferSchema", "true")
+                        .load(fp)
+                        for fp in file_paths
+                    ]
                 else:
                     raise SourceConnectionError(f"Unsupported file type: {file_type}")
 
@@ -528,14 +521,20 @@ class ExecutionService:
                     raise TransformationError(f"Unknown mapping type: {mapping_type}")
 
             # Add entity columns if specified (always cast to string for consistency)
-            if mapping.get("entity_root_id_column") and \
-               mapping["entity_root_id_column"] in source_df.columns:
+            if (
+                mapping.get("entity_root_id_column")
+                and mapping["entity_root_id_column"] in source_df.columns
+            ):
                 columns_to_select.append(
-                    F.col(mapping["entity_root_id_column"]).cast("string").alias("entity_root_id")
+                    F.col(mapping["entity_root_id_column"])
+                    .cast("string")
+                    .alias("entity_root_id")
                 )
 
-            if mapping.get("entity_id_column") and \
-               mapping["entity_id_column"] in source_df.columns:
+            if (
+                mapping.get("entity_id_column")
+                and mapping["entity_id_column"] in source_df.columns
+            ):
                 columns_to_select.append(
                     F.col(mapping["entity_id_column"]).cast("string").alias("entity_id")
                 )

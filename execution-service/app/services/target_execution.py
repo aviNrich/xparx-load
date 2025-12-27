@@ -3,7 +3,7 @@ from typing import Dict, Any
 import requests
 from pyspark.sql import DataFrame
 from .delta_writer import get_spark_session
-from .target_handlers import TargetHandlers
+from .gold_handlers import GoldHandlers
 from sqlalchemy import create_engine
 import logging
 from ..config import get_settings
@@ -153,45 +153,14 @@ class TargetExecutionService:
         source_id: str,
         target_db_config: Dict[str, Any],
     ) -> int:
-        """Write Spark DataFrame to target PostgreSQL database using Spark JDBC"""
+        """
+        Write Spark DataFrame to target PostgreSQL database using Spark JDBC.
 
-        # context = {"source_id": source_id}
-        # try:
-        #     handler = TargetHandlers.get_handler(schema_handler)
-        #     res = handler(df, context)
-        #     writer = self.get_pg_writer(
-        #         res["df"], target_db_config, res["table_name"], "append"
-        #     )
-        #     writer.save()
-
-        #     res["df"].show(5, truncate=False)
-
-        #     if "related_df" in res:
-        #         self._write_related_with_conflict_handling(
-        #             res["related_df"], target_db_config, res["related_table"]
-        #         )
-        #         res["related_df"].show(5, truncate=False)
-        #     w = Window.partitionBy(res["related_poi_col"]).orderBy("id")
-        #     poi_df = (
-        #         res["df"]
-        #         .withColumn("rn", F.row_number().over(w))
-        #         .filter(F.col("rn") == 1)
-        #         .drop("rn")
-        #         .select(
-        #             F.col(res["related_poi_col"]).alias("id"),
-        #             F.col("id").alias(res["primary_col"]),  # keep the original id too
-        #             "source_id",
-        #             "source_item_id",
-        #         )
-        #     )
-
-        #     self._write_poi(poi_df, target_db_config)
-
-        # except ValueError as e:
-        #     logger.warning(
-        #         f"Handler error: {str(e)}. Writing without handler transformations."
-        #     )
-        # return df.count()
+        NOTE: Target writes are currently disabled as gold layer handlers now write directly to Delta Lake.
+        This method returns 0 to indicate no rows written to target database.
+        """
+        logger.info("Target database write is disabled - data written to gold layer only")
+        return 0
 
     def _write_poi(self, df: DataFrame, target_db_config: Dict[str, Any]) -> None:
         temp_table = f"person_of_interest_temp_{int(time.time())}"
