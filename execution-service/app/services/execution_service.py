@@ -497,6 +497,7 @@ class ExecutionService:
         try:
             column_mappings = config["column_mappings"]
             mapping = config["mapping"]
+            target_schema = config["target_schema"]
 
             # Collect all column expressions to select
             columns_to_select = []
@@ -506,7 +507,7 @@ class ExecutionService:
                 mapping_type = mapping_config["type"]
 
                 if mapping_type == "direct":
-                    col_expr = self._apply_direct_mapping(source_df, mapping_config)
+                    col_expr = self._apply_direct_mapping(source_df, mapping_config, target_schema)
                     columns_to_select.append(col_expr)
 
                 elif mapping_type == "split":
@@ -548,7 +549,7 @@ class ExecutionService:
             raise TransformationError(f"Data transformation failed: {str(e)}")
 
     def _apply_direct_mapping(
-        self, source_df: DataFrame, mapping: Dict[str, Any]
+        self, source_df: DataFrame, mapping: Dict[str, Any], target_schema: Dict[str, Any]
     ) -> Column:
         """Return a Spark Column for direct mapping"""
         source_column = mapping["source_column"]
@@ -557,7 +558,43 @@ class ExecutionService:
         if source_column not in source_df.columns:
             raise TransformationError(f"Source column not found: {source_column}")
 
-        return F.col(source_column).alias(target_field)
+        # Check if this is an enum field with value mappings
+        enum_value_mappings = mapping.get("enum_value_mappings")
+
+        if enum_value_mappings:
+            # Apply enum value mapping using CASE WHEN statement
+            source_col = F.col(source_column).cast("string")
+
+            # Build CASE WHEN chain
+            col_expr = None
+            for source_value, enum_key in enum_value_mappings.items():
+                condition = source_col == source_value
+                if col_expr is None:
+                    col_expr = F.when(condition, enum_key)
+                else:
+                    col_expr = col_expr.when(condition, enum_key)
+
+            # Find the target field in schema to check for default_enum_key
+            default_enum_key = None
+            for field in target_schema.get("fields", []):
+                if field["name"] == target_field:
+                    default_enum_key = field.get("default_enum_key")
+                    break
+
+            # Final otherwise: use default_enum_key if set, otherwise null
+            if col_expr is not None:
+                if default_enum_key:
+                    col_expr = col_expr.otherwise(F.lit(default_enum_key))
+                else:
+                    col_expr = col_expr.otherwise(F.lit(None))
+            else:
+                # No mappings defined, use default or null
+                col_expr = F.lit(default_enum_key if default_enum_key else None)
+
+            return col_expr.alias(target_field)
+        else:
+            # Regular direct mapping without enum transformation
+            return F.col(source_column).alias(target_field)
 
     def _apply_split_mapping(
         self, source_df: DataFrame, mapping: Dict[str, Any]

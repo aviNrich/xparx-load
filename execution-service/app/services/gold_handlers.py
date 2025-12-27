@@ -236,11 +236,13 @@ class GoldHandlers:
         )
 
         # Extract normalized fields from the struct and replace original columns
-        main_df = main_df.withColumn("first_name", F.col("normalized.first_name")) \
-                         .withColumn("middle_name", F.col("normalized.middle_name")) \
-                         .withColumn("last_name", F.col("normalized.last_name")) \
-                         .withColumn("full_name", F.col("normalized.full_name")) \
-                         .drop("normalized")
+        main_df = (
+            main_df.withColumn("first_name", F.col("normalized.first_name"))
+            .withColumn("middle_name", F.col("normalized.middle_name"))
+            .withColumn("last_name", F.col("normalized.last_name"))
+            .withColumn("full_name", F.col("normalized.full_name"))
+            .drop("normalized")
+        )
 
         # Write main table
         main_table_path = os.path.join(base_path, "gold", "name_to_poi")
@@ -345,7 +347,7 @@ class GoldHandlers:
             GoldHandlers.source_item_id_col(),
             GoldHandlers.id_col(),
             GoldHandlers.poi_id_col(context).alias("poi_id"),
-            normalize_gender(df.gender).alias("gender"),
+            df.gender.alias("gender"),
             *[
                 col for col in df.columns if col.startswith("_gold_")
             ],  # Include metadata

@@ -8,7 +8,7 @@ import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { TableSchemaFormData, FieldType } from '../../types/schema';
-import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, X } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -28,8 +28,18 @@ import { CSS } from '@dnd-kit/utilities';
 
 const fieldSchema = z.object({
   name: z.string().min(1, 'Field name is required').trim(),
-  field_type: z.enum(['string', 'integer', 'date', 'boolean']),
+  field_type: z.enum(['string', 'integer', 'date', 'boolean', 'enum']),
   description: z.string().optional(),
+  enum_values: z.record(z.string()).optional(),
+  default_enum_key: z.string().optional(),
+}).refine((data) => {
+  if (data.field_type === 'enum') {
+    return data.enum_values && Object.keys(data.enum_values).length > 0;
+  }
+  return true;
+}, {
+  message: 'Enum values are required for enum field type',
+  path: ['enum_values'],
 });
 
 const schemaFormSchema = z.object({
@@ -69,6 +79,45 @@ interface SortableFieldItemProps {
   onRemove: () => void;
   showFieldDescriptions: Record<string, boolean>;
   setShowFieldDescriptions: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+}
+
+interface EnumValueRowProps {
+  enumKey: string;
+  enumValue: string;
+  onKeyChange: (newKey: string) => void;
+  onValueChange: (newValue: string) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+}
+
+function EnumValueRow({ enumKey, enumValue, onKeyChange, onValueChange, onRemove, canRemove }: EnumValueRowProps) {
+  return (
+    <div className="flex gap-2">
+      <Input
+        value={enumKey}
+        onChange={(e) => onKeyChange(e.target.value)}
+        placeholder="Key (e.g., m, f)"
+        className="text-sm h-8"
+      />
+      <Input
+        value={enumValue}
+        onChange={(e) => onValueChange(e.target.value)}
+        placeholder="Value (e.g., Male, Female)"
+        className="text-sm h-8"
+      />
+      {canRemove && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onRemove}
+          className="border-red-200 text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      )}
+    </div>
+  );
 }
 
 function SortableFieldItem({
@@ -149,7 +198,17 @@ function SortableFieldItem({
               </Label>
               <Select
                 value={watch(`fields.${index}.field_type`)}
-                onValueChange={(value) => setValue(`fields.${index}.field_type`, value as FieldType)}
+                onValueChange={(value) => {
+                  setValue(`fields.${index}.field_type`, value as FieldType);
+                  // Initialize enum_values when switching to enum type
+                  if (value === 'enum' && !watch(`fields.${index}.enum_values`)) {
+                    setValue(`fields.${index}.enum_values`, { key_1: '' });
+                  }
+                  // Clear enum_values when switching away from enum type
+                  if (value !== 'enum') {
+                    setValue(`fields.${index}.enum_values`, undefined);
+                  }
+                }}
               >
                 <SelectTrigger className="mt-1 text-sm h-8">
                   <SelectValue />
@@ -164,6 +223,111 @@ function SortableFieldItem({
               </Select>
             </div>
           </div>
+
+          {/* Enum Values - Only show if field type is enum */}
+          {watch(`fields.${index}.field_type`) === 'enum' && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-neutral-600 mb-2 block">
+                  Enum Values <span className="text-red-500">*</span>
+                </Label>
+                <div className="space-y-2">
+                  {(() => {
+                    const enumValues = watch(`fields.${index}.enum_values`) || {};
+                    const entries = Object.entries(enumValues);
+
+                    return (
+                      <>
+                        {entries.map(([key, value], enumIndex) => (
+                          <EnumValueRow
+                            key={`${field.id}-enum-${enumIndex}`}
+                            enumKey={key}
+                            enumValue={value as string}
+                            onKeyChange={(newKey) => {
+                              const currentValues = { ...enumValues };
+                              delete currentValues[key];
+                              currentValues[newKey] = value as string;
+                              setValue(`fields.${index}.enum_values`, currentValues);
+                              // Clear default if it was the old key
+                              if (watch(`fields.${index}.default_enum_key`) === key) {
+                                setValue(`fields.${index}.default_enum_key`, undefined);
+                              }
+                            }}
+                            onValueChange={(newValue) => {
+                              setValue(`fields.${index}.enum_values`, {
+                                ...enumValues,
+                                [key]: newValue,
+                              });
+                            }}
+                            onRemove={() => {
+                              const currentValues = { ...enumValues };
+                              delete currentValues[key];
+                              setValue(`fields.${index}.enum_values`, currentValues);
+                              // Clear default if it was the removed key
+                              if (watch(`fields.${index}.default_enum_key`) === key) {
+                                setValue(`fields.${index}.default_enum_key`, undefined);
+                              }
+                            }}
+                            canRemove={entries.length > 1}
+                          />
+                        ))}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const currentValues = enumValues || {};
+                            const newKey = `key_${Object.keys(currentValues).length + 1}`;
+                            setValue(`fields.${index}.enum_values`, {
+                              ...currentValues,
+                              [newKey]: '',
+                            });
+                          }}
+                          className="text-primary-600 border-primary-300 hover:bg-primary-50 h-7 text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Enum Value
+                        </Button>
+                      </>
+                    );
+                  })()}
+                </div>
+                {errors.fields?.[index]?.enum_values && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.fields[index]?.enum_values?.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Default Enum Key */}
+              <div>
+                <Label className="text-xs text-neutral-600 mb-1 block">
+                  Default Value (Fallback)
+                </Label>
+                <p className="text-xs text-neutral-500 mb-2">
+                  Optional default value for unmapped source values
+                </p>
+                <Select
+                  value={watch(`fields.${index}.default_enum_key`) || '__none__'}
+                  onValueChange={(value) => {
+                    setValue(`fields.${index}.default_enum_key`, value === '__none__' ? undefined : value);
+                  }}
+                >
+                  <SelectTrigger className="text-sm h-8">
+                    <SelectValue placeholder="No default (null)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No default (null)</SelectItem>
+                    {Object.entries(watch(`fields.${index}.enum_values`) || {}).map(([key, value]) => (
+                      <SelectItem key={key} value={key}>
+                        {key} → {value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           {/* Field Description */}
           <div>
@@ -268,7 +432,7 @@ export function SchemaForm({ initialData, onSubmit, onCancel, isEdit = false }: 
     }
   }, [initialData, reset]);
 
-  const fieldTypes: FieldType[] = ['string', 'integer', 'date', 'boolean'];
+  const fieldTypes: FieldType[] = ['string', 'integer', 'date', 'boolean', 'enum'];
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

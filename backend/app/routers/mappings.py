@@ -8,6 +8,8 @@ from ..schemas.mapping import (
     TableInfoResponse,
     SqlPreviewRequest,
     SqlPreviewResponse,
+    UniqueValuesRequest,
+    UniqueValuesResponse,
     MappingCreate,
     MappingResponse,
     MappingUpdate,
@@ -47,6 +49,26 @@ def preview_sql_query(
     """Preview SQL query results (top 100 rows)"""
     try:
         return service.preview_sql_query(request, limit=100)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post("/unique-values", response_model=UniqueValuesResponse)
+def get_unique_column_values(
+    request: UniqueValuesRequest,
+    service: MappingService = Depends(get_mapping_service)
+):
+    """Get unique values for a column from SQL query result (limited to 2000)"""
+    try:
+        return service.get_unique_column_values(request, limit=2000)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Dict
 from datetime import datetime
 from bson import ObjectId
 
@@ -18,8 +18,10 @@ class PyObjectId(ObjectId):
 
 class SchemaField(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    field_type: Literal["string", "integer", "date", "boolean"]
+    field_type: Literal["string", "integer", "date", "boolean", "enum"]
     description: Optional[str] = None
+    enum_values: Optional[Dict[str, str]] = None
+    default_enum_key: Optional[str] = None  # Default/fallback enum key for unmapped values
 
     @field_validator('name')
     @classmethod
@@ -28,6 +30,36 @@ class SchemaField(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Field name cannot be empty")
+        return v
+
+    @field_validator('enum_values')
+    @classmethod
+    def validate_enum_values(cls, v, info):
+        field_type = info.data.get('field_type')
+        if field_type == 'enum':
+            if not v:
+                raise ValueError("enum_values is required for enum field type")
+            if not isinstance(v, dict) or len(v) == 0:
+                raise ValueError("enum_values must be a non-empty dictionary")
+        elif v is not None:
+            raise ValueError("enum_values can only be set for enum field type")
+        return v
+
+    @field_validator('default_enum_key')
+    @classmethod
+    def validate_default_enum_key(cls, v, info):
+        if v is not None:
+            field_type = info.data.get('field_type')
+            enum_values = info.data.get('enum_values')
+
+            # Only allow default_enum_key for enum fields
+            if field_type != 'enum':
+                raise ValueError("default_enum_key can only be set for enum field type")
+
+            # Validate that default_enum_key exists in enum_values
+            if enum_values and v not in enum_values:
+                raise ValueError(f"default_enum_key '{v}' must be one of the enum keys: {list(enum_values.keys())}")
+
         return v
 
 

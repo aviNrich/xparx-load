@@ -19,6 +19,8 @@ interface ColumnMappingListProps {
   sourceColumns: string[];
   targetFields: SchemaField[];
   sampleData?: any[][];
+  connectionId: string;
+  sqlQuery: string;
   onChange: (mappings: ColumnMapping[]) => void;
 }
 
@@ -27,6 +29,8 @@ export function ColumnMappingList({
   sourceColumns,
   targetFields,
   sampleData,
+  connectionId,
+  sqlQuery,
   onChange,
 }: ColumnMappingListProps) {
   const handleAddMapping = (type: MappingType) => {
@@ -213,6 +217,8 @@ export function ColumnMappingList({
                     sourceColumns={sourceColumns}
                     targetFields={targetFields}
                     sampleData={sampleData}
+                    connectionId={connectionId}
+                    sqlQuery={sqlQuery}
                     onChange={(updated) => handleUpdateMapping(index, updated)}
                     onDelete={() => handleDeleteMapping(index)}
                   />

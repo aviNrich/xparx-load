@@ -48,6 +48,7 @@ export interface DirectMapping {
   type: 'direct';
   source_column: string;
   target_field: string;
+  enum_value_mappings?: Record<string, string>;  // For enum fields: source_value -> enum_key
 }
 
 export interface SplitMapping {

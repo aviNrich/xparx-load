@@ -181,6 +181,20 @@ export const mappingAPI = {
   // Preview SQL query results
   previewSql: async (data: SqlPreviewRequest): Promise<SqlPreviewResponse> => {
     const response = await api.post<SqlPreviewResponse>('/mappings/preview', data);
+    debugger;
+    return response.data;
+  },
+
+  // Get unique values for a column
+  getUniqueValues: async (connectionId: string, sqlQuery: string, columnName: string): Promise<{ column_name: string; unique_values: string[]; total_count: number }> => {
+    const response = await api.post<{ column_name: string; unique_values: string[]; total_count: number }>(
+      '/mappings/unique-values',
+      {
+        connection_id: connectionId,
+        sql_query: sqlQuery,
+        column_name: columnName,
+      }
+    );
     return response.data;
   },
 };

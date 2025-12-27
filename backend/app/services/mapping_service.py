@@ -10,6 +10,8 @@ from ..schemas.mapping import (
     TableInfoResponse,
     SqlPreviewRequest,
     SqlPreviewResponse,
+    UniqueValuesRequest,
+    UniqueValuesResponse,
     MappingCreate,
     MappingUpdate,
     MappingResponse,
@@ -165,6 +167,62 @@ class MappingService:
             raise Exception(f"Failed to execute query: {error_detail}")
         except Exception as e:
             raise Exception(f"Failed to execute query: {str(e)}")
+
+    def get_unique_column_values(self, request: UniqueValuesRequest, limit: int = 2000) -> UniqueValuesResponse:
+        """Get unique values for a column from SQL query result"""
+        # Get connection from database
+        if not ObjectId.is_valid(request.connection_id):
+            raise ConnectionNotFoundError(f"Invalid connection ID: {request.connection_id}")
+
+        connection = self.collection.find_one({"_id": ObjectId(request.connection_id)})
+        if not connection:
+            raise ConnectionNotFoundError(f"Connection not found: {request.connection_id}")
+
+        try:
+            # Validate query is a SELECT statement
+            query_upper = request.sql_query.strip().upper()
+            if not query_upper.startswith("SELECT"):
+                raise ValueError("Only SELECT queries are allowed")
+
+            # Validate column name to prevent SQL injection
+            if not re.match(r'^[a-zA-Z0-9_]+$', request.column_name):
+                raise ValueError("Invalid column name format")
+
+            # Build a query to get unique values
+            # Wrap the original query as a subquery and select distinct values
+            unique_query = f"""
+                SELECT DISTINCT {request.column_name}
+                FROM ({request.sql_query}) AS subquery
+                WHERE {request.column_name} IS NOT NULL
+                ORDER BY {request.column_name}
+                LIMIT {limit}
+            """
+
+            connection_string = self._build_connection_string(connection)
+            engine = create_engine(
+                connection_string,
+                connect_args={"connect_timeout": 10},
+                pool_pre_ping=True
+            )
+
+            unique_values = []
+            with engine.connect() as conn:
+                result = conn.execute(text(unique_query))
+                for row in result:
+                    value = str(row[0]) if row[0] is not None else None
+                    if value is not None:
+                        unique_values.append(value)
+
+            engine.dispose()
+
+            return UniqueValuesResponse(
+                column_name=request.column_name,
+                unique_values=unique_values,
+                total_count=len(unique_values)
+            )
+
+        except Exception as e:
+            raise Exception(f"Failed to fetch unique values: {str(e)}")
 
     def _add_limit_to_query(self, query: str, limit: int) -> str:
         """Add LIMIT clause to query if not present"""

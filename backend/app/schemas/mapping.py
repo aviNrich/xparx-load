@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import Optional, List, Any, Union, Literal, Annotated
+from typing import Optional, List, Any, Union, Literal, Annotated, Dict
 from datetime import datetime
 from bson import ObjectId
 import re
@@ -21,6 +21,18 @@ class SqlPreviewResponse(BaseModel):
     columns: List[str]
     rows: List[List[Any]]
     row_count: int
+
+
+class UniqueValuesRequest(BaseModel):
+    connection_id: str
+    sql_query: str
+    column_name: str
+
+
+class UniqueValuesResponse(BaseModel):
+    column_name: str
+    unique_values: List[str]
+    total_count: int
 
 
 # Future use for Phase 2
@@ -66,6 +78,7 @@ class DirectMapping(BaseModel):
     type: Literal["direct"]
     source_column: str
     target_field: str
+    enum_value_mappings: Optional[Dict[str, str]] = None  # For enum fields: source_value -> enum_key
 
 
 class SplitMapping(BaseModel):

@@ -1,9 +1,11 @@
-export type FieldType = 'string' | 'integer' | 'date' | 'boolean';
+export type FieldType = 'string' | 'integer' | 'date' | 'boolean' | 'enum';
 
 export interface SchemaField {
   name: string;
   field_type: FieldType;
   description?: string;
+  enum_values?: Record<string, string>;
+  default_enum_key?: string;  // Default/fallback enum key for unmapped values
 }
 
 export interface TableSchema {

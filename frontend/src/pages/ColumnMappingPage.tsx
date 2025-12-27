@@ -418,6 +418,8 @@ export function ColumnMappingPage() {
                             sourceColumns={previewData.columns}
                             targetFields={schemaConfigs[activeSchemaIndex].schema.fields}
                             sampleData={previewData.rows}
+                            connectionId={mapping.source_connection_id}
+                            sqlQuery={mapping.sql_query}
                             onChange={handleMappingsChange}
                           />
                         </>
