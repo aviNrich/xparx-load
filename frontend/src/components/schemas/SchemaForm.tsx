@@ -29,9 +29,9 @@ import { CSS } from '@dnd-kit/utilities';
 const fieldSchema = z.object({
   name: z.string().min(1, 'Field name is required').trim(),
   field_type: z.enum(['string', 'integer', 'date', 'boolean', 'enum']),
-  description: z.string().optional(),
-  enum_values: z.record(z.string()).optional(),
-  default_enum_key: z.string().optional(),
+  description: z.string().optional().nullable(),
+  enum_values: z.record(z.string()).optional().nullable(),
+  default_enum_key: z.string().optional().nullable(),
 }).refine((data) => {
   if (data.field_type === 'enum') {
     return data.enum_values && Object.keys(data.enum_values).length > 0;
@@ -48,7 +48,7 @@ const schemaFormSchema = z.object({
     .min(1, 'Schema handler is required')
     .trim()
     .regex(/^[a-z_][a-z0-9_]*$/, 'Schema handler must be in snake_case (lowercase letters, numbers, and underscores only)'),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   fields: z.array(fieldSchema).min(1, 'At least one field is required'),
 }).refine((data) => {
   const fieldNames = data.fields.map(f => f.name.toLowerCase());
@@ -434,8 +434,27 @@ export function SchemaForm({ initialData, onSubmit, onCancel, isEdit = false }: 
 
   const fieldTypes: FieldType[] = ['string', 'integer', 'date', 'boolean', 'enum'];
 
+  const handleFormSubmit = handleSubmit(
+    (data) => {
+      console.log('Form validation passed, submitting data:', data);
+      onSubmit(data);
+    },
+    (errors) => {
+      console.error('Form validation failed:', errors);
+      console.error('Detailed field errors:', JSON.stringify(errors, null, 2));
+      // Show which specific fields have errors
+      if (errors.fields && Array.isArray(errors.fields)) {
+        errors.fields.forEach((fieldError: any, index: number) => {
+          if (fieldError) {
+            console.error(`Field ${index} errors:`, fieldError);
+          }
+        });
+      }
+    }
+  );
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleFormSubmit} className="space-y-4">
       {/* Table Name */}
       <div>
         <Label htmlFor="name" className="text-neutral-700 text-xs">
@@ -541,6 +560,22 @@ export function SchemaForm({ initialData, onSubmit, onCancel, isEdit = false }: 
 
         {errors.fields && typeof errors.fields.message === 'string' && (
           <p className="mt-2 text-xs text-red-600">{errors.fields.message}</p>
+        )}
+        {errors.fields && Array.isArray(errors.fields) && (
+          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-xs font-semibold text-red-800 mb-2">Field validation errors:</p>
+            {errors.fields.map((fieldError: any, index: number) => {
+              if (!fieldError) return null;
+              return (
+                <div key={index} className="text-xs text-red-600 mb-1">
+                  <strong>Field {index + 1}:</strong>
+                  {fieldError.name && <span> Name: {fieldError.name.message}</span>}
+                  {fieldError.field_type && <span> Type: {fieldError.field_type.message}</span>}
+                  {fieldError.enum_values && <span> Enum Values: {fieldError.enum_values.message}</span>}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 

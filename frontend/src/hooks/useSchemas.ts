@@ -31,7 +31,9 @@ export function useSchemas() {
   };
 
   const updateSchema = async (id: string, data: Partial<TableSchemaFormData>): Promise<TableSchema> => {
+    console.log('useSchemas.updateSchema called with id:', id, 'data:', data);
     const updated = await schemaAPI.update(id, data);
+    console.log('useSchemas.updateSchema response:', updated);
     setSchemas(prev => prev.map(schema => schema._id === id ? updated : schema));
     return updated;
   };

@@ -116,7 +116,9 @@ export const schemaAPI = {
 
   // Update schema
   update: async (id: string, data: Partial<TableSchemaFormData>): Promise<TableSchema> => {
+    console.log('schemaAPI.update called - URL:', `/schemas/${id}`, 'data:', data);
     const response = await api.put<TableSchema>(`/schemas/${id}`, data);
+    console.log('schemaAPI.update response:', response);
     return response.data;
   },
 
@@ -181,7 +183,6 @@ export const mappingAPI = {
   // Preview SQL query results
   previewSql: async (data: SqlPreviewRequest): Promise<SqlPreviewResponse> => {
     const response = await api.post<SqlPreviewResponse>('/mappings/preview', data);
-    debugger;
     return response.data;
   },
 

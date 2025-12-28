@@ -80,11 +80,15 @@ export function SchemaPage() {
   };
 
   const handleModalSubmit = async (data: TableSchemaFormData) => {
+    console.log('handleModalSubmit called with data:', data);
+    console.log('isEditMode:', isEditMode, 'id:', id);
     try {
       if (isEditMode && id) {
+        console.log('Calling updateSchema with id:', id);
         await updateSchema(id, data);
         toast.success('Schema updated successfully!');
       } else {
+        console.log('Calling createSchema');
         await createSchema(data);
         toast.success('Schema created successfully!');
       }
