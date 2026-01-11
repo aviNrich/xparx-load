@@ -36,13 +36,17 @@ class MappingRunService:
         query_filter = {}
         if mapping_id:
             query_filter["mapping_id"] = mapping_id
+            print(f"[DEBUG] Filtering by mapping_id: {mapping_id}", flush=True)
         if source_id:
             query_filter["source_id"] = source_id
         if status:
             query_filter["status"] = status
 
+        print(f"[DEBUG] Query filter: {query_filter}", flush=True)
+
         # Get total count
         total_count = self.mapping_runs_collection.count_documents(query_filter)
+        print(f"[DEBUG] Found {total_count} runs matching filter", flush=True)
 
         # Get paginated runs
         runs = list(
@@ -53,22 +57,35 @@ class MappingRunService:
             .limit(limit)
         )
 
+        if runs:
+            print(f"[DEBUG] First run mapping_id: {runs[0].get('mapping_id')}", flush=True)
+
         # Populate mapping and source names
         for run in runs:
             run["_id"] = str(run["_id"])
 
             # Populate mapping name
             if run.get("mapping_id"):
-                mapping = self.mappings_collection.find_one({"_id": ObjectId(run["mapping_id"])})
-                if mapping:
-                    run["mapping_name"] = mapping.get("name")
+                try:
+                    mapping = self.mappings_collection.find_one({"_id": ObjectId(run["mapping_id"])})
+                    if mapping:
+                        run["mapping_name"] = mapping.get("name")
+                    else:
+                        print(f"[DEBUG] Mapping not found for mapping_id: {run['mapping_id']}", flush=True)
+                except Exception as e:
+                    print(f"[DEBUG] Error looking up mapping: {e}", flush=True)
 
             # Populate source name and type
             if run.get("source_id"):
-                connection = self.connections_collection.find_one({"_id": ObjectId(run["source_id"])})
-                if connection:
-                    run["source_name"] = connection.get("name")
-                    run["source_type"] = connection.get("db_type")
+                try:
+                    connection = self.connections_collection.find_one({"_id": ObjectId(run["source_id"])})
+                    if connection:
+                        run["source_name"] = connection.get("name")
+                        run["source_type"] = connection.get("db_type")
+                    else:
+                        print(f"[DEBUG] Connection not found for source_id: {run['source_id']}", flush=True)
+                except Exception as e:
+                    print(f"[DEBUG] Error looking up connection: {e}", flush=True)
 
         # Calculate has_more
         has_more = (offset + limit) < total_count
@@ -102,15 +119,21 @@ class MappingRunService:
 
         # Populate mapping name
         if run.get("mapping_id"):
-            mapping = self.mappings_collection.find_one({"_id": ObjectId(run["mapping_id"])})
-            if mapping:
-                run["mapping_name"] = mapping.get("name")
+            try:
+                mapping = self.mappings_collection.find_one({"_id": ObjectId(run["mapping_id"])})
+                if mapping:
+                    run["mapping_name"] = mapping.get("name")
+            except Exception as e:
+                print(f"[DEBUG] Error looking up mapping for get_run: {e}", flush=True)
 
         # Populate source name and type
         if run.get("source_id"):
-            connection = self.connections_collection.find_one({"_id": ObjectId(run["source_id"])})
-            if connection:
-                run["source_name"] = connection.get("name")
-                run["source_type"] = connection.get("db_type")
+            try:
+                connection = self.connections_collection.find_one({"_id": ObjectId(run["source_id"])})
+                if connection:
+                    run["source_name"] = connection.get("name")
+                    run["source_type"] = connection.get("db_type")
+            except Exception as e:
+                print(f"[DEBUG] Error looking up connection for get_run: {e}", flush=True)
 
         return MappingRunResponse(**run)

@@ -29,6 +29,7 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
   };
 
   const handleViewHistory = (mappingId: string) => {
+    console.log('[MappingList] Opening history for mapping_id:', mappingId);
     setSelectedMappingId(mappingId);
     setHistoryModalOpen(true);
   };

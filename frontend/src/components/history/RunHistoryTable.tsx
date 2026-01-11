@@ -34,11 +34,17 @@ export function RunHistoryTable({
         ...(statusFilter && { status: statusFilter }),
       };
 
+      console.log('[RunHistoryTable] Fetching runs with filters:', combinedFilters);
+
       const response = await mappingRunAPI.list(
         combinedFilters,
         pageSize,
         currentPage * pageSize
       );
+
+      console.log('[RunHistoryTable] Received runs:', response.runs.length, 'runs');
+      console.log('[RunHistoryTable] First run mapping_id:', response.runs[0]?.mapping_id);
+      console.log('[RunHistoryTable] Filter mapping_id:', combinedFilters.mapping_id);
 
       setRuns(response.runs);
       setTotalCount(response.total_count);
