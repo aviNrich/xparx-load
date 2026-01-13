@@ -12,6 +12,7 @@ import { MappingsPage } from './pages/MappingsPage';
 import { NewMappingPage } from './pages/NewMappingPage';
 import { ColumnMappingPage } from './pages/ColumnMappingPage';
 import { SchedulingPage } from './pages/SchedulingPage';
+import { UnifiedMappingPage } from './pages/UnifiedMappingPage';
 import { SchemaPage } from './pages/SchemaPage';
 import SchemaPreviewPage from './pages/SchemaPreviewPage';
 import SettingsPage from './pages/SettingsPage';
@@ -145,7 +146,9 @@ function App() {
               <Route path="/sources/new" element={<SourcesPage />} />
               <Route path="/sources/:id" element={<SourcesPage />} />
               <Route path="/mappings" element={<MappingsPage />} />
-              <Route path="/mappings/new" element={<NewMappingPage />} />
+              <Route path="/mappings/new" element={<UnifiedMappingPage />} />
+              <Route path="/mappings/:mappingId/edit" element={<UnifiedMappingPage />} />
+              {/* Legacy routes - keeping for backward compatibility */}
               <Route path="/mappings/:mappingId" element={<NewMappingPage />} />
               <Route path="/mappings/:mappingId/columns" element={<ColumnMappingPage />} />
               <Route path="/mappings/:mappingId/schedule" element={<SchedulingPage />} />

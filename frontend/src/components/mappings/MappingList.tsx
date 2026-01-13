@@ -216,7 +216,7 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                               variant="outline"
                               className="border-neutral-200 hover:bg-neutral-50"
                             >
-                              <Link to={`/mappings/${mapping._id}`}>
+                              <Link to={`/mappings/${mapping._id}/edit`}>
                                 <Pencil className="h-3 w-3" />
                               </Link>
                             </Button>
