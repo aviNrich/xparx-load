@@ -146,10 +146,14 @@ function App() {
               <Route path="/sources/new" element={<SourcesPage />} />
               <Route path="/sources/:id" element={<SourcesPage />} />
               <Route path="/mappings" element={<MappingsPage />} />
+
+              {/* New Unified UI - Single page, all-in-one */}
               <Route path="/mappings/new" element={<UnifiedMappingPage />} />
               <Route path="/mappings/:mappingId/edit" element={<UnifiedMappingPage />} />
-              {/* Legacy routes - keeping for backward compatibility */}
-              <Route path="/mappings/:mappingId" element={<NewMappingPage />} />
+
+              {/* Classic Wizard UI - 3-step process */}
+              <Route path="/mappings/new/wizard" element={<NewMappingPage />} />
+              <Route path="/mappings/:mappingId/wizard" element={<NewMappingPage />} />
               <Route path="/mappings/:mappingId/columns" element={<ColumnMappingPage />} />
               <Route path="/mappings/:mappingId/schedule" element={<SchedulingPage />} />
               <Route path="/history" element={<RunHistoryPage />} />

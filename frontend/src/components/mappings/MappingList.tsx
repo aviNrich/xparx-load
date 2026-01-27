@@ -1,12 +1,19 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { Mapping } from '../../types/mapping';
 import { MappingRun } from '../../types/mappingRun';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
-import { Pencil, Trash2, Workflow, Plus, Eye, Database, History, ArchiveRestore } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '../ui/dropdown-menu';
+import { Pencil, Trash2, Workflow, Plus, Eye, Database, History, ArchiveRestore, ChevronDown } from 'lucide-react';
 import { RunHistoryTable } from '../history/RunHistoryTable';
 import { RunDetailsModal } from '../history/RunDetailsModal';
 
@@ -16,6 +23,7 @@ interface MappingListProps {
 }
 
 export function MappingList({ mappings, onDelete }: MappingListProps) {
+  const navigate = useNavigate();
   const [queryDialogOpen, setQueryDialogOpen] = useState(false);
   const [selectedQuery, setSelectedQuery] = useState<string>('');
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -120,18 +128,34 @@ export function MappingList({ mappings, onDelete }: MappingListProps) {
                     </p>
                   </div>
                 </div>
-                <Button
-                  asChild
-                  size="sm"
-                  variant="outline"
-                  className="border-neutral-200 hover:bg-neutral-50"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Link to={`/mappings/new?source=${group.sourceId}`}>
-                    <Plus className="h-3 w-3 mr-1" />
-                    New Mapping
-                  </Link>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-neutral-200 hover:bg-neutral-50"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      New Mapping
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => navigate(`/mappings/new?source=${group.sourceId}`)}>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">Unified View</span>
+                        <span className="text-xs text-neutral-500">All-in-one page</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate(`/mappings/new/wizard?source=${group.sourceId}`)}>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">Step-by-Step Wizard</span>
+                        <span className="text-xs text-neutral-500">Classic 3-step process</span>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-0 pb-0">

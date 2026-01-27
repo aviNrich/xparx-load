@@ -18,7 +18,7 @@ import { SqlPreviewTable } from '../components/mappings/SqlPreviewTable';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { EntityColumnSelectionDialog } from '../components/mappings/EntityColumnSelectionDialog';
 import { MappingWizardHeader } from '../components/mappings/MappingWizardHeader';
-import { ArrowLeft, Loader2, AlertCircle, Play, Save } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Play, Save, LayoutGrid } from 'lucide-react';
 
 const mappingSchema = z.object({
   name: z.string().min(1, 'Mapping name is required').max(100, 'Name must be 100 characters or less'),
@@ -354,12 +354,29 @@ export function NewMappingPage() {
   return (
     <div className="h-screen flex flex-col bg-neutral-50">
       {/* Header - Fixed with better visual hierarchy */}
-      <MappingWizardHeader
-        title={isEditMode ? 'Edit Mapping' : 'Create New Mapping'}
-        description="Step 1: Configure source and preview data"
-        currentStep={1}
-        backLink="/mappings"
-      />
+      <div className="flex-shrink-0 bg-white border-b border-neutral-200">
+        <MappingWizardHeader
+          title={isEditMode ? 'Edit Mapping' : 'Create New Mapping'}
+          description="Step 1: Configure source and preview data"
+          currentStep={1}
+          backLink="/mappings"
+        />
+        {/* UI Switcher */}
+        <div className="px-6 pb-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const sourceParam = sourceConnectionId ? `?source=${sourceConnectionId}` : '';
+              navigate(isEditMode ? `/mappings/${mappingId}/edit` : `/mappings/new${sourceParam}`);
+            }}
+            className="text-xs"
+          >
+            <LayoutGrid className="h-3 w-3 mr-1" />
+            Switch to Unified View
+          </Button>
+        </div>
+      </div>
 
       {/* Main Content - 2 Column Layout */}
       <div className="flex-1 flex overflow-hidden pb-20">

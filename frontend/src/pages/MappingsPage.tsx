@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MappingList } from '../components/mappings/MappingList';
-import { Loader2, AlertCircle, Plus } from 'lucide-react';
+import { Loader2, AlertCircle, Plus, ChevronDown } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '../components/ui/dropdown-menu';
 import { useMappings } from '../hooks/useMappings';
 import { Mapping } from '../types/mapping';
 
@@ -49,13 +56,34 @@ export const MappingsPage = () => {
             <h1 className="text-2xl font-bold text-neutral-900">Data Mappings</h1>
             <p className="text-sm text-neutral-500 mt-1">Configure ETL data mappings</p>
           </div>
-          <Button
-            onClick={() => navigate('/mappings/new')}
-            className="bg-primary-500 hover:bg-primary-600 text-white shadow-lg hover:shadow-xl transition-all"
-          >
-            <Plus className="mr-2 h-5 w-5" />
-            Create Mapping
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-primary-500 hover:bg-primary-600 text-white shadow-lg hover:shadow-xl transition-all">
+                <Plus className="mr-2 h-5 w-5" />
+                Create Mapping
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem onClick={() => navigate('/mappings/new')}>
+                <div className="flex flex-col py-1">
+                  <span className="font-medium">Unified View</span>
+                  <span className="text-xs text-neutral-500 mt-0.5">
+                    All-in-one page, see everything at once
+                  </span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/mappings/new/wizard')}>
+                <div className="flex flex-col py-1">
+                  <span className="font-medium">Step-by-Step Wizard</span>
+                  <span className="text-xs text-neutral-500 mt-0.5">
+                    Classic 3-step guided process
+                  </span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Archive Toggle */}

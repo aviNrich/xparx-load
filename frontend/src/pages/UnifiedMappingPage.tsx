@@ -8,7 +8,7 @@ import { TableSchema } from '../types/schema';
 import { mappingAPI, columnMappingAPI, schemaAPI } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { ArrowLeft, Loader2, AlertCircle, Save } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Save, Workflow } from 'lucide-react';
 
 // Import new hybrid UI components
 import { SourcePanel } from '../components/mappings/hybrid/SourcePanel';
@@ -350,6 +350,18 @@ export function UnifiedMappingPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const sourceParam = sourceConnectionId ? `?source=${sourceConnectionId}` : '';
+                navigate(isEditMode ? `/mappings/${mappingId}/wizard` : `/mappings/new/wizard${sourceParam}`);
+              }}
+              className="text-xs"
+            >
+              <Workflow className="h-3 w-3 mr-1" />
+              Switch to Wizard
+            </Button>
             <Button
               variant="outline"
               size="default"
