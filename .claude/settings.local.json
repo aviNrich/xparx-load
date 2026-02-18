@@ -10,9 +10,13 @@
       "Bash(wc:*)",
       "Bash(ls:*)",
       "Bash(npm run build:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "/home/avi/work/etl-engine-3/frontend/src/hooks"
+    ]
   }
 }
