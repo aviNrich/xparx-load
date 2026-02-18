@@ -11,7 +11,9 @@
       "Bash(ls:*)",
       "Bash(npm run build:*)",
       "Bash(cat:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build:*)"
     ],
     "deny": [],
     "ask": [],
